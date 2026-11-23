@@ -61,8 +61,8 @@ class RekapService
             ->berimpitDengan($mulai, $selesai)
             ->get()
             ->each(function (PengajuanIzin $p) use (&$dikecualikan, $awal, $akhir) {
-                $hari = $p->tgl_izin->copy()->max($awal)->startOfDay();
-                $batas = $p->tanggalAkhir()->min($akhir);
+                $hari = $p->tgl_izin->copy()->max($awal->copy())->startOfDay();
+                $batas = $p->tanggalAkhir()->min($akhir->copy());
                 while ($hari->lte($batas)) {
                     $dikecualikan[$p->nik][$hari->toDateString()] ??= $p->jenis();
                     $hari->addDay();
