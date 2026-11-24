@@ -20,6 +20,9 @@ class Presensi extends Model
         'akurasi_in', 'perlu_review', 'catatan', 'ip_address', 'tugas_luar',
         'lembur_menit', 'keterangan_lembur', 'lembur_status', 'lembur_catatan',
         'lembur_diputuskan_oleh', 'lembur_diputuskan_pada', 'lembur_diketahui_oleh', 'lembur_diketahui_pada',
+        'pulang_cepat_menit', 'alasan_pulang_cepat', 'pulang_cepat_status', 'pulang_cepat_catatan',
+        'pulang_cepat_diputuskan_oleh', 'pulang_cepat_diputuskan_pada', 'pulang_cepat_diketahui_oleh', 'pulang_cepat_diketahui_pada',
+        'koreksi_oleh', 'koreksi_pada', 'koreksi_alasan', 'koreksi_jam_in_asli', 'koreksi_jam_out_asli',
     ];
 
     protected function casts(): array
@@ -32,6 +35,10 @@ class Presensi extends Model
             'lembur_status' => StatusPengajuan::class, // null = tidak lembur
             'lembur_diputuskan_pada' => 'datetime',
             'lembur_diketahui_pada' => 'datetime',
+            'pulang_cepat_status' => StatusPengajuan::class, // null = pulang normal
+            'pulang_cepat_diputuskan_pada' => 'datetime',
+            'pulang_cepat_diketahui_pada' => 'datetime',
+            'koreksi_pada' => 'datetime',
         ];
     }
 
@@ -54,6 +61,28 @@ class Presensi extends Model
     public function pemutusLembur(): BelongsTo
     {
         return $this->belongsTo(User::class, 'lembur_diputuskan_oleh');
+    }
+
+    /** Direksi yang memutuskan pulang cepat. */
+    public function pemutusPulangCepat(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pulang_cepat_diputuskan_oleh');
+    }
+
+    /** HR/Admin yang mengoreksi presensi ini. */
+    public function pengoreksi(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'koreksi_oleh');
+    }
+
+    public function dikoreksi(): bool
+    {
+        return $this->koreksi_pada !== null;
+    }
+
+    public function adaPulangCepat(): bool
+    {
+        return $this->pulang_cepat_status !== null;
     }
 
     public function adaLembur(): bool

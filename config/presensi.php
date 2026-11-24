@@ -39,6 +39,11 @@ return [
         'minimal_menit' => 30,
     ],
 
+    'koreksi' => [
+        // Koreksi presensi oleh HR hanya untuk tanggal sekian hari ke belakang.
+        'maks_hari_mundur' => 31,
+    ],
+
     'cuti' => [
         'jatah_tahunan' => 12,
     ],

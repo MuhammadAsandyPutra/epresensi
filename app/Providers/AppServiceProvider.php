@@ -36,22 +36,26 @@ class AppServiceProvider extends ServiceProvider
             $user = Auth::guard('user')->user();
             $pengajuan = 0;
             $lembur = 0;
+            $pulangCepat = 0;
 
             if ($user && Schema::hasTable('pengajuan_izin')) {
                 $baru = Schema::hasColumn('presensi', 'lembur_status');
+                $barePc = Schema::hasColumn('presensi', 'pulang_cepat_status');
 
                 if ($user->isDireksi()) {
                     $pengajuan = PengajuanIzin::query()->where('status_approved', 0)->count();
                     $lembur = $baru ? Presensi::query()->where('lembur_status', 0)->count() : 0;
+                    $pulangCepat = $barePc ? Presensi::query()->where('pulang_cepat_status', 0)->count() : 0;
                 } elseif ($baru) {
                     $pengajuan = PengajuanIzin::query()->whereNull('diketahui_hr_pada')->where('status_approved', '!=', 3)->count();
                     $lembur = Presensi::query()->whereNotNull('lembur_status')->whereNull('lembur_diketahui_pada')->count();
+                    $pulangCepat = $barePc ? Presensi::query()->whereNotNull('pulang_cepat_status')->whereNull('pulang_cepat_diketahui_pada')->count() : 0;
                 } else {
                     $pengajuan = PengajuanIzin::query()->where('status_approved', 0)->count();
                 }
             }
 
-            $view->with(['badgePengajuan' => $pengajuan, 'badgeLembur' => $lembur, 'jumlahMenunggu' => $pengajuan]);
+            $view->with(['badgePengajuan' => $pengajuan, 'badgeLembur' => $lembur, 'badgePulangCepat' => $pulangCepat, 'jumlahMenunggu' => $pengajuan]);
         });
     }
 }

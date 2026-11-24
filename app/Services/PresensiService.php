@@ -28,13 +28,14 @@ class PresensiService
      * Catat presensi. Otomatis menentukan masuk atau pulang.
      *
      * Saat tugas luar yang DISETUJUI berlaku pada hari ini, radius kantor tidak dicek (selfie, GPS,
-     * dan jam tetap divalidasi). Pulang melewati jam pulang + batas lembur wajib disertai keterangan lembur.
+     * dan jam tetap divalidasi). Pulang melewati jam pulang + batas lembur wajib disertai keterangan lembur;
+     * pulang SEBELUM jam pulang wajib disertai alasan (menunggu keputusan Direksi, tetap tercatat).
      *
-     * @return array{jenis: string, pesan: string, terlambat_menit: int, lembur_menit: int}
+     * @return array{jenis: string, pesan: string, terlambat_menit: int, lembur_menit: int, pulang_cepat_menit: int}
      *
      * @throws AturanBisnisException bila ada aturan yang dilanggar
      */
-    public function catat(Karyawan $karyawan, string $lokasi, ?float $akurasi, string $fotoDataUrl, ?string $ip = null, ?string $keteranganLembur = null): array
+    public function catat(Karyawan $karyawan, string $lokasi, ?float $akurasi, string $fotoDataUrl, ?string $ip = null, ?string $keteranganLembur = null, ?string $alasanPulangCepat = null): array
     {
         $sekarang = now();
         $tanggal = $sekarang->toDateString();
@@ -114,16 +115,28 @@ class PresensiService
                 'pesan' => $menit > 0 ? "Presensi masuk tercatat. Anda terlambat {$menit} menit." : 'Terima kasih, selamat bekerja!',
                 'terlambat_menit' => $menit,
                 'lembur_menit' => 0,
+                'pulang_cepat_menit' => 0,
             ];
         }
 
         if ($presensi->jam_out === null) {
-            if (Waktu::detik($jam) < Waktu::detik($jamKerja->jam_pulang)) {
-                throw new AturanBisnisException('Belum waktunya pulang (jam pulang ' . Waktu::hm($jamKerja->jam_pulang) . ').', 'waktu');
+            // Pulang sebelum jam pulang tetap boleh (keperluan mendadak), tetapi alasan WAJIB dan
+            // keputusannya menyusul di Direksi. Dicek SEBELUM foto disimpan: tanpa alasan tidak ada berkas tertinggal.
+            $detikSekarang = Waktu::detik($jam);
+            $detikPulang = Waktu::detik($jamKerja->jam_pulang);
+            $cepat = $detikSekarang < $detikPulang ? max(1, (int) ceil(($detikPulang - $detikSekarang) / 60)) : 0;
+            $alasan = trim((string) $alasanPulangCepat);
+            if ($cepat > 0) {
+                if ($alasan === '') {
+                    throw new AturanBisnisException("Anda pulang {$cepat} menit sebelum jam pulang (".Waktu::hm($jamKerja->jam_pulang).'). Isi alasan pulang lebih awal untuk melanjutkan.', 'pulang_cepat');
+                }
+                if (mb_strlen($alasan) < 5) {
+                    throw new AturanBisnisException('Alasan pulang lebih awal terlalu singkat. Jelaskan keperluan Anda.', 'pulang_cepat');
+                }
             }
 
-            // Lembur dicek SEBELUM foto disimpan: bila keterangan kosong, tidak ada berkas yang tertinggal.
-            $lembur = $this->menitLembur($jamKerja->jam_pulang, $jam);
+            // Lembur hanya relevan bila pulang SETELAH jam pulang.
+            $lembur = $cepat > 0 ? 0 : $this->menitLembur($jamKerja->jam_pulang, $jam);
             $keterangan = trim((string) $keteranganLembur);
             if ($lembur > 0) {
                 if ($keterangan === '') {
@@ -148,15 +161,25 @@ class PresensiService
                     'lembur_status' => StatusPengajuan::Menunggu->value, // menunggu persetujuan Direksi
                 ];
             }
+            if ($cepat > 0) {
+                $ubah += [
+                    'pulang_cepat_menit' => $cepat,
+                    'alasan_pulang_cepat' => mb_substr($alasan, 0, 500),
+                    'pulang_cepat_status' => StatusPengajuan::Menunggu->value, // menunggu keputusan Direksi
+                ];
+            }
             $presensi->update($ubah);
 
             return [
                 'jenis' => 'pulang',
-                'pesan' => $lembur > 0
-                    ? "Presensi pulang tercatat. Lembur {$lembur} menit dikirim ke Direksi untuk persetujuan."
-                    : 'Presensi pulang tercatat. Hati-hati di jalan!',
+                'pesan' => match (true) {
+                    $cepat > 0 => "Presensi pulang tercatat. Pulang lebih awal {$cepat} menit dikirim ke Direksi untuk persetujuan.",
+                    $lembur > 0 => "Presensi pulang tercatat. Lembur {$lembur} menit dikirim ke Direksi untuk persetujuan.",
+                    default => 'Presensi pulang tercatat. Hati-hati di jalan!',
+                },
                 'terlambat_menit' => 0,
                 'lembur_menit' => $lembur,
+                'pulang_cepat_menit' => $cepat,
             ];
         }
 

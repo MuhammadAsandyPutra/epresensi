@@ -198,4 +198,128 @@ class DireksiTugasLuarLemburTest extends TestCase
         $this->actingAs($direksi, 'user')->post(route('panel.lembur.kembalikan', $p))->assertSessionHas('sukses');
         $this->assertSame(StatusPengajuan::Menunggu, $p->fresh()->lembur_status);
     }
+
+    // ------------------------------------------------------------ pulang lebih awal
+
+    public function test_pulang_sebelum_jam_wajib_alasan_dan_belum_tercatat_tanpa_alasan(): void
+    {
+        $this->masukLalu('2026-11-16 13:00:00'); // 240 menit sebelum 17:00
+
+        $this->kirim(self::DI_KANTOR)->assertStatus(422)->assertJson(['kode' => 'pulang_cepat']);
+        $this->assertNull(Presensi::query()->first()->jam_out);
+
+        $this->kirim(self::DI_KANTOR, ['alasan_pulang_cepat' => 'x'])->assertStatus(422)->assertJson(['kode' => 'pulang_cepat']);
+        $this->assertNull(Presensi::query()->first()->jam_out);
+    }
+
+    public function test_pulang_awal_dengan_alasan_tercatat_menunggu_dan_direksi_memutuskan(): void
+    {
+        $this->masukLalu('2026-11-16 13:00:00');
+
+        $this->kirim(self::DI_KANTOR, ['alasan_pulang_cepat' => 'Anak sakit, dijemput dari sekolah'])
+            ->assertOk()->assertJson(['jenis' => 'pulang', 'pulang_cepat_menit' => 240, 'lembur_menit' => 0]);
+
+        $p = Presensi::query()->firstOrFail();
+        $this->assertSame('13:00:00', $p->jam_out);
+        $this->assertSame(StatusPengajuan::Menunggu, $p->pulang_cepat_status);
+        $this->assertNull($p->lembur_status);
+
+        $hr = $this->buatAdmin(User::ROLE_HR);
+        $direksi = $this->buatAdmin(User::ROLE_DIREKSI);
+
+        $this->actingAs($hr, 'user')->post(route('panel.pulang-cepat.putuskan', $p), ['keputusan' => 'setuju'])->assertForbidden();
+        $this->actingAs($hr, 'user')->post(route('panel.pulang-cepat.ketahui', $p))->assertSessionHas('sukses');
+        $this->assertNotNull($p->fresh()->pulang_cepat_diketahui_pada);
+
+        $this->actingAs($direksi, 'user')->post(route('panel.pulang-cepat.putuskan', $p), ['keputusan' => 'setuju'])->assertSessionHas('sukses');
+        $this->assertSame(StatusPengajuan::Disetujui, $p->fresh()->pulang_cepat_status);
+    }
+
+    public function test_pulang_awal_yang_disetujui_tidak_dihitung_pulang_cepat_di_rekap(): void
+    {
+        $this->masukLalu('2026-11-16 13:00:00');
+        $this->kirim(self::DI_KANTOR, ['alasan_pulang_cepat' => 'Keperluan keluarga mendesak'])->assertOk();
+        $p = Presensi::query()->firstOrFail();
+        $k = \App\Models\Karyawan::query()->findOrFail('1001');
+        $rekap = app(\App\Services\RekapService::class);
+        $hari = Carbon::parse('2026-11-16')->startOfDay();
+
+        $ambil = fn () => $rekap->baris($k, $rekap->muat(collect([$k]), $hari, $hari), $hari, $hari)->first();
+
+        $this->assertTrue($ambil()['pulang_cepat']); // menunggu: tetap dihitung
+        app(\App\Services\PulangCepatService::class)->putuskan($p->fresh(), StatusPengajuan::Disetujui, $this->buatAdmin(User::ROLE_DIREKSI));
+        $this->assertFalse($ambil()['pulang_cepat']); // disetujui: tidak dihitung
+    }
+
+    // ------------------------------------------------------------ koreksi presensi oleh HR
+
+    private function koreksi(array $o = [])
+    {
+        return $this->post(route('panel.koreksi.store'), array_merge([
+            'nik' => '1001', 'tanggal' => '2026-11-13', 'jam_masuk' => '08:55', 'jam_pulang' => '17:00',
+            'alasan' => 'HP karyawan rusak seharian',
+        ], $o));
+    }
+
+    public function test_hr_membuat_presensi_baru_lewat_koreksi(): void
+    {
+        $this->buatKaryawan();
+        $this->actingAs($this->buatAdmin(User::ROLE_HR), 'user');
+
+        $this->koreksi()->assertRedirect(route('panel.koreksi.index'))->assertSessionHas('sukses');
+
+        $p = Presensi::query()->where('nik', '1001')->where('tanggal_presensi', '2026-11-13')->firstOrFail();
+        $this->assertSame('08:55:00', $p->jam_in);
+        $this->assertSame('17:00:00', $p->jam_out);
+        $this->assertTrue($p->dikoreksi());
+        $this->assertSame('HP karyawan rusak seharian', $p->koreksi_alasan);
+        $this->assertNull($p->koreksi_jam_in_asli);
+        $this->assertDatabaseHas('log_aktivitas', ['aksi' => 'presensi.koreksi']);
+    }
+
+    public function test_koreksi_menyimpan_jam_asli_hanya_pada_koreksi_pertama(): void
+    {
+        $this->buatKaryawan();
+        Presensi::query()->create(['nik' => '1001', 'tanggal_presensi' => '2026-11-13', 'jam_in' => '09:30:00', 'kode_jam_kerja' => 'JK01']);
+        $this->actingAs($this->buatAdmin(User::ROLE_HR), 'user');
+
+        $this->koreksi(['jam_pulang' => ''])->assertSessionHas('sukses');
+        $p = Presensi::query()->where('nik', '1001')->firstOrFail();
+        $this->assertSame('08:55:00', $p->jam_in);
+        $this->assertSame('09:30:00', $p->koreksi_jam_in_asli);
+
+        $this->koreksi(['jam_masuk' => '08:40', 'jam_pulang' => '17:05'])->assertSessionHas('sukses');
+        $p = $p->fresh();
+        $this->assertSame('08:40:00', $p->jam_in);
+        $this->assertSame('17:05:00', $p->jam_out);
+        $this->assertSame('09:30:00', $p->koreksi_jam_in_asli); // tidak tertimpa
+    }
+
+    public function test_koreksi_ditolak_pada_kasus_yang_tidak_valid(): void
+    {
+        $this->buatKaryawan();
+        $this->actingAs($this->buatAdmin(User::ROLE_HR), 'user');
+
+        $this->koreksi(['tanggal' => '2026-11-17'])->assertSessionHas('galat');                  // masa depan
+        $this->koreksi(['tanggal' => '2026-11-15'])->assertSessionHas('galat');                  // Minggu
+        $this->koreksi(['tanggal' => '2026-09-01'])->assertSessionHas('galat');                  // lewat batas hari mundur
+        $this->koreksi(['jam_masuk' => '17:00', 'jam_pulang' => '09:00'])->assertSessionHas('galat'); // pulang < masuk
+        $this->koreksi(['jam_masuk' => '', 'jam_pulang' => '17:00'])->assertSessionHas('galat');       // belum ada presensi masuk
+        $this->koreksi(['alasan' => 'singkat'])->assertSessionHasErrors('alasan');
+        $this->assertDatabaseCount('presensi', 0);
+
+        \App\Models\HariLibur::query()->create(['tanggal' => '2026-11-13', 'keterangan' => 'Libur uji']);
+        $this->koreksi()->assertSessionHas('galat');
+        $this->assertDatabaseCount('presensi', 0);
+    }
+
+    public function test_direksi_dan_karyawan_tidak_bisa_mengoreksi(): void
+    {
+        $this->buatKaryawan();
+
+        $this->actingAs($this->buatAdmin(User::ROLE_DIREKSI), 'user');
+        $this->koreksi()->assertForbidden();
+        $this->get(route('panel.koreksi.index'))->assertForbidden();
+        $this->assertDatabaseCount('presensi', 0);
+    }
 }

@@ -47,6 +47,7 @@ class PresensiController extends Controller
                 $request->string('foto')->toString(),
                 $request->ip(),
                 $request->filled('keterangan_lembur') ? $request->string('keterangan_lembur')->toString() : null,
+                $request->filled('alasan_pulang_cepat') ? $request->string('alasan_pulang_cepat')->toString() : null,
             );
         } catch (AturanBisnisException $e) {
             return response()->json(['ok' => false, 'pesan' => $e->getMessage(), 'kode' => $e->kode], 422);

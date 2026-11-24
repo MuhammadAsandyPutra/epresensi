@@ -139,7 +139,9 @@ class RekapService
                 ...$baris,
                 'status' => $menit > 0 ? StatusHarian::Terlambat : StatusHarian::Hadir,
                 'terlambat_menit' => $menit,
-                'pulang_cepat' => $jam?->pulangCepat($presensi->jam_out) ?? false,
+                // Pulang cepat yang disetujui Direksi tidak dihitung (tidak kena penalti KPI).
+                'pulang_cepat' => ($jam?->pulangCepat($presensi->jam_out) ?? false)
+                    && $presensi->pulang_cepat_status !== StatusPengajuan::Disetujui,
             ];
         }
 

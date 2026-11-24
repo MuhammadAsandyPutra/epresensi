@@ -38,10 +38,13 @@
                     <td>
                         @if ($menit > 0)<span class="badge bg-orange-lt">Terlambat {{ $menit }} mnt</span>@else<span class="badge bg-green-lt">Tepat waktu</span>@endif
                         @if ($p->perlu_review)<span class="badge bg-red-lt" title="Akurasi GPS rendah atau koordinat berulang">Perlu review</span>@endif
+                        @if ($p->dikoreksi())<span class="badge bg-blue-lt" title="{{ $p->koreksi_alasan }}">Dikoreksi HR</span>@endif
                         @if ($p->tugas_luar)<span class="badge bg-purple-lt" title="Presensi dari lokasi tugas luar yang disetujui">Tugas luar</span>@endif
+                        @if ($p->adaPulangCepat())<span class="badge bg-{{ $p->pulang_cepat_status->warna() }}-lt" title="{{ $p->alasan_pulang_cepat }}">Pulang awal {{ $p->pulang_cepat_menit }} mnt · {{ $p->pulang_cepat_status->label() }}</span>@endif
                         @if ($p->adaLembur())<span class="badge bg-{{ $p->lembur_status->warna() }}-lt" title="{{ $p->keterangan_lembur }}">Lembur {{ $p->lembur_menit }} mnt · {{ $p->lembur_status->label() }}</span>@endif
                     </td>
-                    <td class="text-end">
+                    <td class="text-end text-nowrap">
+                        @if (auth('user')->user()->penerimaInfo())<a href="{{ route('panel.koreksi.index', ['nik' => $p->nik, 'tanggal' => $tanggal->toDateString()]) }}" class="btn btn-sm btn-outline-secondary"><i class="ti ti-edit"></i> Koreksi</a>@endif
                         @if ($lok && $kantor)
                             <button type="button" class="btn btn-sm btn-outline-primary btn-peta" data-bs-toggle="modal" data-bs-target="#modalPeta"
                                 data-nama="{{ $p->karyawan?->nama_lengkap }}" data-lat="{{ $lok[0] }}" data-lng="{{ $lok[1] }}"
@@ -63,7 +66,7 @@
     <div class="card-header"><h3 class="card-title">Belum presensi / tanpa keterangan ({{ $belum->count() }})</h3></div>
     <div class="table-responsive">
         <table class="table card-table table-vcenter">
-            <thead><tr><th>Karyawan</th><th>Departemen</th><th>Status</th></tr></thead>
+            <thead><tr><th>Karyawan</th><th>Departemen</th><th>Status</th><th></th></tr></thead>
             <tbody>
             @forelse ($belum as $x)
                 <tr>
@@ -71,9 +74,10 @@
                     <td>{{ $x['karyawan']->departemen?->nama_dept }}</td>
                     <td><span class="badge bg-{{ $x['baris']['status']->warna() }}-lt">{{ $x['baris']['status']->label() }}</span>
                         @if ($x['baris']['tugas_luar'])<div class="text-secondary small">{{ $x['baris']['keterangan'] }}</div>@endif</td>
+                    <td class="text-end">@if (auth('user')->user()->penerimaInfo())<a href="{{ route('panel.koreksi.index', ['nik' => $x['karyawan']->nik, 'tanggal' => $tanggal->toDateString()]) }}" class="btn btn-sm btn-outline-secondary"><i class="ti ti-edit"></i> Koreksi</a>@endif</td>
                 </tr>
             @empty
-                <tr><td colspan="3" class="text-center text-secondary py-3">Tidak ada.</td></tr>
+                <tr><td colspan="4" class="text-center text-secondary py-3">Tidak ada.</td></tr>
             @endforelse
             </tbody>
         </table>

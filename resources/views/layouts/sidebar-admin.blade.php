@@ -21,6 +21,11 @@
                     @if ($badgePengajuan > 0)<span class="badge bg-red ms-auto" title="{{ $user->isDireksi() ? 'Menunggu keputusan Anda' : 'Belum diketahui' }}">{{ $badgePengajuan }}</span>@endif</a></li>
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.lembur.*') }}" href="{{ route('panel.lembur.index') }}"><span class="nav-link-icon"><i class="ti ti-clock-plus"></i></span><span class="nav-link-title">Lembur</span>
                     @if ($badgeLembur > 0)<span class="badge bg-red ms-auto" title="{{ $user->isDireksi() ? 'Menunggu keputusan Anda' : 'Belum diketahui' }}">{{ $badgeLembur }}</span>@endif</a></li>
+                <li class="nav-item"><a class="nav-link {{ $menu('panel.pulang-cepat.*') }}" href="{{ route('panel.pulang-cepat.index') }}"><span class="nav-link-icon"><i class="ti ti-door-exit"></i></span><span class="nav-link-title">Pulang Lebih Awal</span>
+                    @if ($badgePulangCepat > 0)<span class="badge bg-red ms-auto" title="{{ $user->isDireksi() ? 'Menunggu keputusan Anda' : 'Belum diketahui' }}">{{ $badgePulangCepat }}</span>@endif</a></li>
+                @if ($user->penerimaInfo())
+                <li class="nav-item"><a class="nav-link {{ $menu('panel.koreksi.*') }}" href="{{ route('panel.koreksi.index') }}"><span class="nav-link-icon"><i class="ti ti-edit-circle"></i></span><span class="nav-link-title">Koreksi Presensi</span></a></li>
+                @endif
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.kpi*') }}" href="{{ route('panel.kpi') }}"><span class="nav-link-icon"><i class="ti ti-chart-bar"></i></span><span class="nav-link-title">KPI Karyawan</span></a></li>
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.laporan*') }}" href="{{ route('panel.laporan') }}"><span class="nav-link-icon"><i class="ti ti-file-text"></i></span><span class="nav-link-title">Laporan &amp; Rekap</span></a></li>
 

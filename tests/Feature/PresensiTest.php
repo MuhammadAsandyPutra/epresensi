@@ -75,8 +75,8 @@ class PresensiTest extends TestCase
         Carbon::setTestNow('2026-11-16 08:50:00');
         $this->kirim(self::DI_KANTOR)->assertOk()->assertJson(['jenis' => 'masuk', 'terlambat_menit' => 0]);
 
-        Carbon::setTestNow('2026-11-16 12:00:00'); // belum waktunya pulang
-        $this->kirim(self::DI_KANTOR)->assertStatus(422)->assertJson(['kode' => 'waktu']);
+        Carbon::setTestNow('2026-11-16 12:00:00'); // sebelum jam pulang: wajib alasan, belum tercatat
+        $this->kirim(self::DI_KANTOR)->assertStatus(422)->assertJson(['kode' => 'pulang_cepat']);
 
         Carbon::setTestNow('2026-11-16 17:05:00');
         $this->kirim(self::DI_KANTOR)->assertOk()->assertJson(['jenis' => 'pulang']);

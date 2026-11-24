@@ -44,12 +44,14 @@ class LaporanController extends Controller
 
         return Csv::unduh(
             "presensi-{$karyawan->nik}-{$awal->format('Y-m')}.csv",
-            ['Tanggal', 'Hari', 'Masuk', 'Pulang', 'Status', 'Terlambat (menit)', 'Pulang cepat', 'Keterangan', 'Tugas luar', 'Lembur (menit)', 'Status lembur', 'Keterangan lembur'],
+            ['Tanggal', 'Hari', 'Masuk', 'Pulang', 'Status', 'Terlambat (menit)', 'Pulang cepat', 'Keterangan', 'Tugas luar', 'Lembur (menit)', 'Status lembur', 'Keterangan lembur', 'Pulang awal (menit)', 'Status pulang awal', 'Alasan pulang awal', 'Dikoreksi HR', 'Alasan koreksi'],
             $baris->map(fn ($b) => [
                 $b['tanggal']->format('Y-m-d'), $b['hari'], Waktu::hm($b['jam_in']), Waktu::hm($b['jam_out']),
                 $b['status']->label(), $b['terlambat_menit'], $b['pulang_cepat'] ? 'Ya' : 'Tidak', $b['keterangan'],
                 $b['tugas_luar'] && $b['presensi'] ? 'Ya' : 'Tidak',
                 $b['presensi']?->lembur_menit, $b['presensi']?->lembur_status?->label(), $b['presensi']?->keterangan_lembur,
+                $b['presensi']?->pulang_cepat_menit, $b['presensi']?->pulang_cepat_status?->label(), $b['presensi']?->alasan_pulang_cepat,
+                $b['presensi']?->dikoreksi() ? 'Ya' : 'Tidak', $b['presensi']?->koreksi_alasan,
             ]),
         );
     }

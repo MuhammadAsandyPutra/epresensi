@@ -152,13 +152,13 @@
         perbarui();
     }
 
-    async function kirim(keteranganLembur) {
+    async function kirim(keterangan, kolom) {
         mengirim = true; perbarui();
         document.getElementById('teksTombol').textContent = 'Mengirim…';
 
         try {
             const muatan = { lokasi: posisi.lat + ',' + posisi.lng, akurasi: posisi.akurasi, foto: fotoTerakhir };
-            if (keteranganLembur) muatan.keterangan_lembur = keteranganLembur;
+            if (keterangan) muatan[kolom] = keterangan; // keterangan_lembur atau alasan_pulang_cepat
 
             const res = await fetch(URL_SIMPAN, {
                 method: 'POST',
@@ -173,17 +173,19 @@
                 return;
             }
 
-            // Pulang melewati jam kerja: minta keterangan lembur, lalu kirim ulang foto yang sama.
-            if (json.kode === 'lembur') {
+            // Pulang melewati jam kerja (lembur) atau sebelum jam pulang: minta keterangan, lalu kirim ulang foto yang sama.
+            if (json.kode === 'lembur' || json.kode === 'pulang_cepat') {
                 selesaiKirim();
+                const lembur = json.kode === 'lembur';
                 const hasil = await Swal.fire({
-                    icon: 'question', title: 'Keterangan lembur', text: json.pesan,
-                    input: 'textarea', inputPlaceholder: 'Tulis pekerjaan yang dilakukan selama lembur',
-                    inputAttributes: { maxlength: 500 }, inputValue: keteranganLembur || '',
+                    icon: 'question', title: lembur ? 'Keterangan lembur' : 'Alasan pulang lebih awal', text: json.pesan,
+                    input: 'textarea',
+                    inputPlaceholder: lembur ? 'Tulis pekerjaan yang dilakukan selama lembur' : 'Mis. anak sakit, keperluan keluarga mendesak',
+                    inputAttributes: { maxlength: 500 }, inputValue: keterangan || '',
                     showCancelButton: true, confirmButtonText: 'Kirim presensi pulang', cancelButtonText: 'Batal',
-                    inputValidator: (v) => (!v || v.trim().length < 5) ? 'Keterangan minimal 5 karakter.' : null,
+                    inputValidator: (v) => (!v || v.trim().length < 5) ? 'Minimal 5 karakter.' : null,
                 });
-                if (hasil.isConfirmed) { return kirim(hasil.value.trim()); }
+                if (hasil.isConfirmed) { return kirim(hasil.value.trim(), lembur ? 'keterangan_lembur' : 'alasan_pulang_cepat'); }
                 return;
             }
 
@@ -197,7 +199,7 @@
     tombol.addEventListener('click', () => {
         if (!posisi || mengirim) return;
         fotoTerakhir = ambilFoto();
-        kirim(null);
+        kirim(null, null);
     });
 })();
 </script>

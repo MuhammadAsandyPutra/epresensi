@@ -63,6 +63,7 @@ Route::prefix('panel')->name('panel.')->group(function () {
         Route::get('/monitoring', [Admin\MonitoringController::class, 'index'])->name('monitoring');
         Route::get('/pengajuan', [Admin\PengajuanController::class, 'index'])->name('pengajuan.index');
         Route::get('/lembur', [Admin\LemburController::class, 'index'])->name('lembur.index');
+        Route::get('/pulang-cepat', [Admin\PulangCepatController::class, 'index'])->name('pulang-cepat.index');
 
         // Laporan
         Route::get('/laporan', [Admin\LaporanController::class, 'index'])->name('laporan');
@@ -77,7 +78,7 @@ Route::prefix('panel')->name('panel.')->group(function () {
         Route::get('/kpi/{karyawan}', [Admin\KpiController::class, 'show'])->name('kpi.show');
     });
 
-    // Keputusan izin/sakit/cuti/tugas luar dan lembur: khusus Direksi.
+    // Keputusan izin/sakit/cuti/tugas luar, lembur, dan pulang lebih awal: khusus Direksi.
     // (Ingin Admin ikut bisa memutuskan? ubah 'role:direksi' menjadi 'role:direksi,admin'
     // dan ubah User::bolehMemutuskan().)
     Route::middleware(['auth:user', 'role:direksi'])->group(function () {
@@ -85,12 +86,19 @@ Route::prefix('panel')->name('panel.')->group(function () {
         Route::post('/pengajuan/{pengajuan}/kembalikan', [Admin\PengajuanController::class, 'kembalikan'])->name('pengajuan.kembalikan');
         Route::post('/lembur/{presensi}/putuskan', [Admin\LemburController::class, 'putuskan'])->name('lembur.putuskan');
         Route::post('/lembur/{presensi}/kembalikan', [Admin\LemburController::class, 'kembalikan'])->name('lembur.kembalikan');
+        Route::post('/pulang-cepat/{presensi}/putuskan', [Admin\PulangCepatController::class, 'putuskan'])->name('pulang-cepat.putuskan');
+        Route::post('/pulang-cepat/{presensi}/kembalikan', [Admin\PulangCepatController::class, 'kembalikan'])->name('pulang-cepat.kembalikan');
     });
 
     // Data master & pengaturan, plus penanda "diketahui": HR dan Admin.
     Route::middleware(['auth:user', 'role:admin,hr'])->group(function () {
         Route::post('/pengajuan/{pengajuan}/ketahui', [Admin\PengajuanController::class, 'ketahui'])->name('pengajuan.ketahui');
         Route::post('/lembur/{presensi}/ketahui', [Admin\LemburController::class, 'ketahui'])->name('lembur.ketahui');
+        Route::post('/pulang-cepat/{presensi}/ketahui', [Admin\PulangCepatController::class, 'ketahui'])->name('pulang-cepat.ketahui');
+
+        // Koreksi presensi (karyawan tidak bisa presensi sama sekali / lupa pulang)
+        Route::get('/koreksi-presensi', [Admin\KoreksiPresensiController::class, 'index'])->name('koreksi.index');
+        Route::post('/koreksi-presensi', [Admin\KoreksiPresensiController::class, 'store'])->name('koreksi.store');
 
         Route::get('/pengaturan', [Admin\PengaturanController::class, 'edit'])->name('pengaturan');
         Route::put('/pengaturan', [Admin\PengaturanController::class, 'update'])->name('pengaturan.update');

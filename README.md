@@ -103,6 +103,15 @@ bulanan; cuti dibatasi saldo tahunan (menunggu + disetujui ikut dihitung); sakit
 **Tugas luar:** diajukan karyawan (tujuan/lokasi wajib), tidak memakai kuota izin maupun saldo cuti. Setelah disetujui Direksi, karyawan **tetap presensi**
 (selfie + GPS + jam tetap divalidasi) tetapi radius kantor tidak dicek pada tanggal tersebut. Presensinya bertanda *tugas luar* di monitoring dan laporan.
 
+**Pulang lebih awal (keperluan mendadak):** presensi pulang sebelum `jam_pulang` tetap diizinkan, tetapi karyawan wajib mengisi alasan.
+Pulangnya langsung tercatat (jam sebenarnya) dengan status *Menunggu*; Direksi memutuskan **sesudahnya**, HR menandai diketahui (menu **Pulang Lebih Awal**).
+Yang disetujui tidak dihitung sebagai pulang cepat di KPI; yang ditolak/belum diputuskan tetap dihitung.
+
+**Koreksi presensi (HR/Admin):** untuk karyawan yang sama sekali tidak bisa presensi (HP rusak, aplikasi error) atau lupa presensi pulang — menu **Koreksi Presensi**
+atau tombol *Koreksi* di Monitoring. Alasan wajib (min. 10 karakter); hanya 31 hari terakhir (`koreksi.maks_hari_mundur`), hanya hari kerja non-libur tanpa izin/cuti disetujui.
+Jam asli, pelaku, dan waktu koreksi tersimpan permanen, tercatat di Log Aktivitas, dan ditandai *Dikoreksi HR* di Monitoring, Laporan, dan CSV.
+Jam pulang tidak dapat dikoreksi bila presensi itu sudah punya pengajuan lembur/pulang lebih awal.
+
 **Lembur:** bila presensi pulang melewati `jam_pulang` + batas lembur (default 30 menit, ubah di **Pengaturan**), karyawan wajib mengisi keterangan lembur.
 Lembur masuk status *Menunggu* → Direksi menyetujui/menolak, HR menandai diketahui (menu **Lembur**). Durasi dan keterangannya tampil di laporan presensi dan CSV.
 

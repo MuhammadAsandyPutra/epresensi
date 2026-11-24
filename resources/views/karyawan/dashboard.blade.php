@@ -40,6 +40,9 @@
         @if ($hariIni['terlambat_menit'] > 0)
             <div class="text-center mt-1" style="font-size:12px;color:#b3660d">Terlambat {{ $hariIni['terlambat_menit'] }} menit</div>
         @endif
+        @if ($presensi->adaPulangCepat())
+            <div class="text-center mt-2"><span class="status-chip chip-{{ $presensi->pulang_cepat_status->warna() }}">Pulang lebih awal · {{ $presensi->pulang_cepat_status->label() }}</span></div>
+        @endif
         @if ($presensi->adaLembur())
             <div class="text-center mt-2"><span class="status-chip chip-{{ $presensi->lembur_status->warna() }}">Lembur {{ $presensi->lembur_menit }} mnt · {{ $presensi->lembur_status->label() }}</span></div>
         @endif

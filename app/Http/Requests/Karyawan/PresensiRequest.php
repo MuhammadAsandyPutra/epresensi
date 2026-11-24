@@ -18,6 +18,7 @@ class PresensiRequest extends FormRequest
             'akurasi' => ['nullable', 'numeric', 'min:0'],  // meter
             'foto' => ['required', 'string'],               // data URL base64
             'keterangan_lembur' => ['nullable', 'string', 'max:500'], // wajib bila pulang melewati batas lembur (dicek di service)
+            'alasan_pulang_cepat' => ['nullable', 'string', 'max:500'], // wajib bila pulang sebelum jam pulang (dicek di service)
         ];
     }
 
