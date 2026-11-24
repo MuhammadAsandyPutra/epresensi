@@ -27,7 +27,8 @@
                         <td>{{ \App\Support\Waktu::hm($b['jam_in']) }}</td><td>{{ \App\Support\Waktu::hm($b['jam_out']) }}</td>
                         <td>{{ $b['status']->label() }}</td>
                         <td>{{ $b['terlambat_menit'] > 0 ? $b['terlambat_menit'].' mnt' : '' }}</td>
-                        <td>{{ $b['keterangan'] }}{{ $b['pulang_cepat'] ? ' Pulang lebih awal.' : '' }}{{ $b['presensi']?->perlu_review ? ' (ditandai review)' : '' }}</td>
+                        <td>{{ $b['keterangan'] }}{{ $b['pulang_cepat'] ? ' Pulang lebih awal.' : '' }}{{ $b['presensi']?->perlu_review ? ' (ditandai review)' : '' }}
+                            @if ($b['presensi']?->adaLembur())<div>Lembur {{ $b['presensi']->lembur_menit }} mnt ({{ $b['presensi']->lembur_status->label() }}): {{ $b['presensi']->keterangan_lembur }}</div>@endif</td>
                     </tr>
                 @endforeach
                 </tbody>
@@ -40,6 +41,11 @@
             Terlambat {{ $h(\App\Enums\StatusHarian::Terlambat) }} kali ({{ $baris->sum('terlambat_menit') }} menit) ·
             Izin {{ $h(\App\Enums\StatusHarian::Izin) }} · Sakit {{ $h(\App\Enums\StatusHarian::Sakit) }} · Cuti {{ $h(\App\Enums\StatusHarian::Cuti) }} ·
             Tanpa keterangan {{ $h(\App\Enums\StatusHarian::Alpa) }}
+            @php
+                $lemburDisetujui = $baris->sum(fn ($b) => ($b['presensi']?->lembur_status === \App\Enums\StatusPengajuan::Disetujui) ? (int) $b['presensi']->lembur_menit : 0);
+                $hariTugasLuar = $baris->filter(fn ($b) => $b['tugas_luar'] && $b['presensi'])->count();
+            @endphp
+            · Tugas luar {{ $hariTugasLuar }} hari · Lembur disetujui {{ intdiv($lemburDisetujui, 60) }} jam {{ $lemburDisetujui % 60 }} menit
         </div>
         <div class="text-secondary small mt-3">Dicetak {{ now()->translatedFormat('d F Y H:i') }}</div>
     </div>

@@ -44,7 +44,7 @@ class PengajuanController extends Controller
             return back()->withInput()->with('galat', $e->getMessage());
         }
 
-        return redirect()->route('izin.index')->with('sukses', 'Pengajuan terkirim dan menunggu persetujuan HR.');
+        return redirect()->route('izin.index')->with('sukses', 'Pengajuan terkirim ke Direksi dan menunggu persetujuan.');
     }
 
     public function batal(PengajuanIzin $pengajuan): RedirectResponse

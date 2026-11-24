@@ -1,6 +1,6 @@
 @extends('layouts.karyawan')
 
-@section('judul', 'Ajukan Izin / Cuti')
+@section('judul', 'Ajukan Izin / Cuti / Tugas Luar')
 @section('header', 'Pengajuan Baru')
 
 @section('content')
@@ -25,6 +25,12 @@
                 <option value="{{ $j->value }}" @selected((string) old('jenis', 1) === (string) $j->value)>{{ $j->label() }}</option>
             @endforeach
         </select>
+    </div>
+
+    <div class="form-group" id="kolomLokasiTugas" style="display:none">
+        <label for="lokasi_tugas">Tujuan / lokasi tugas</label>
+        <input type="text" name="lokasi_tugas" id="lokasi_tugas" class="form-control" maxlength="150" value="{{ old('lokasi_tugas') }}" placeholder="Mis. Kantor Cabang Banjarmasin / kunjungan nasabah">
+        <div class="text-muted" style="font-size:12px;margin-top:4px">Setelah disetujui Direksi, Anda tetap presensi (selfie + GPS) dari lokasi tugas; batas radius kantor tidak berlaku.</div>
     </div>
 
     <div class="row">
@@ -55,7 +61,13 @@
 @push('scripts')
 <script>
     const jenis = document.getElementById('jenis'), petunjuk = document.getElementById('petunjukLampiran');
-    const ubah = () => { petunjuk.textContent = jenis.value === '2' ? '(sangat disarankan: foto surat dokter)' : '(opsional, JPG/PNG/PDF)'; };
+    const kolomLokasi = document.getElementById('kolomLokasiTugas'), inputLokasi = document.getElementById('lokasi_tugas');
+    const ubah = () => {
+        petunjuk.textContent = jenis.value === '2' ? '(sangat disarankan: foto surat dokter)' : '(opsional, JPG/PNG/PDF)';
+        const tugasLuar = jenis.value === '4';
+        kolomLokasi.style.display = tugasLuar ? '' : 'none';
+        inputLokasi.required = tugasLuar;
+    };
     jenis.addEventListener('change', ubah); ubah();
 </script>
 @endpush

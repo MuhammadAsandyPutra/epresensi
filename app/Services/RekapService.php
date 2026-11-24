@@ -53,18 +53,25 @@ class RekapService
             ->map(fn ($grup) => $grup->keyBy(fn ($p) => $p->tanggal_presensi->toDateString()))
             ->all();
 
-        // Tanggal yang dikecualikan karena izin/sakit/cuti yang SUDAH DISETUJUI.
+        // Tanggal yang dikecualikan karena izin/sakit/cuti yang SUDAH DISETUJUI. Tugas luar TIDAK
+        // mengecualikan presensi (karyawan tetap presensi dari lokasi tugas); ia hanya dicatat
+        // di $tugasLuar agar laporan dapat menampilkan keterangannya.
         $dikecualikan = [];
+        $tugasLuar = [];
         PengajuanIzin::query()
             ->whereIn('nik', $niks)
             ->where('status_approved', StatusPengajuan::Disetujui->value)
             ->berimpitDengan($mulai, $selesai)
             ->get()
-            ->each(function (PengajuanIzin $p) use (&$dikecualikan, $awal, $akhir) {
+            ->each(function (PengajuanIzin $p) use (&$dikecualikan, &$tugasLuar, $awal, $akhir) {
                 $hari = $p->tgl_izin->copy()->max($awal->copy())->startOfDay();
                 $batas = $p->tanggalAkhir()->min($akhir->copy());
                 while ($hari->lte($batas)) {
-                    $dikecualikan[$p->nik][$hari->toDateString()] ??= $p->jenis();
+                    if ($p->jenis()->membebaskanPresensi()) {
+                        $dikecualikan[$p->nik][$hari->toDateString()] ??= $p->jenis();
+                    } else {
+                        $tugasLuar[$p->nik][$hari->toDateString()] ??= $p->lokasi_tugas ?: 'tugas luar';
+                    }
                     $hari->addDay();
                 }
             });
@@ -73,7 +80,7 @@ class RekapService
             ->mapWithKeys(fn ($h) => [$h->tanggal->toDateString() => $h->keterangan])
             ->all();
 
-        return compact('jamKerja', 'jadwal', 'presensi', 'dikecualikan', 'libur');
+        return compact('jamKerja', 'jadwal', 'presensi', 'dikecualikan', 'tugasLuar', 'libur');
     }
 
     /**
@@ -102,6 +109,8 @@ class RekapService
         $kodeJam = $ctx['jadwal'][$nik][$namaHari] ?? null;
         $presensi = ($ctx['presensi'][$nik] ?? collect())->get($tglStr);
 
+        $lokasiTugas = $ctx['tugasLuar'][$nik][$tglStr] ?? null;
+
         $baris = [
             'tanggal' => $tgl,
             'hari' => $namaHari,
@@ -111,7 +120,8 @@ class RekapService
             'jam_out' => $presensi?->jam_out,
             'terlambat_menit' => 0,
             'pulang_cepat' => false,
-            'keterangan' => null,
+            'tugas_luar' => $lokasiTugas !== null || (bool) $presensi?->tugas_luar,
+            'keterangan' => $lokasiTugas !== null ? 'Tugas luar: '.$lokasiTugas : null,
         ];
 
         if (isset($ctx['libur'][$tglStr])) {
@@ -138,6 +148,7 @@ class RekapService
                 JenisPengajuan::Izin => StatusHarian::Izin,
                 JenisPengajuan::Sakit => StatusHarian::Sakit,
                 JenisPengajuan::Cuti => StatusHarian::Cuti,
+                JenisPengajuan::TugasLuar => StatusHarian::Belum, // tidak pernah terjadi: tugas luar tidak dikecualikan
             }];
         }
 

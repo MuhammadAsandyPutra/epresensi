@@ -8,7 +8,10 @@ Dua portal terpisah dalam satu aplikasi (mengikuti struktur proyek referensi `pr
 | Karyawan (mobile-first) | `/` | NIK + sandi | `karyawan` | Presensi, riwayat, izin/cuti, profil |
 | HR & Admin (desktop) | `/panel` | Email + sandi | `user` | Monitoring, persetujuan, KPI, laporan, data master, pengaturan |
 
-Peran panel: **hr** (semua kecuali konfigurasi sistem) dan **admin** (semua, termasuk Lokasi Kantor, Jam Kerja, Log Aktivitas).
+Peran panel:
+* **direksi** — memantau (dashboard, monitoring, KPI, laporan) dan **satu-satunya yang menyetujui/menolak** izin, sakit, cuti, tugas luar, dan lembur.
+* **hr** — mengelola data karyawan, departemen, hari libur, pengaturan; menerima pemberitahuan (tombol **Tandai diketahui**) atas pengajuan dan lembur; tidak dapat menyetujui.
+* **admin** — seperti HR, plus Lokasi Kantor, Jam Kerja, Akun Panel, dan Log Aktivitas.
 
 > **Status verifikasi:** kode ditulis dan diperiksa secara statis (struktur, route, view, direktif Blade), tetapi
 > **belum dijalankan** karena lingkungan penyusunnya tidak punya PHP/Composer. Jalankan `php artisan test`
@@ -95,7 +98,13 @@ satu baris per karyawan per hari. Presensi **mencurigakan** (akurasi > 50 m, ata
 
 **Izin/sakit/cuti:** hari kerja dihitung dari jadwal karyawan dikurangi hari libur; tanggal tidak boleh bentrok; izin/sakit punya kuota
 bulanan; cuti dibatasi saldo tahunan (menunggu + disetujui ikut dihitung); sakit boleh mundur N hari; karyawan bisa membatalkan selagi menunggu;
-HR dapat menyetujui, menolak (alasan wajib), atau membatalkan keputusan. Semua keputusan tercatat di Log Aktivitas.
+**Direksi** menyetujui, menolak (alasan wajib), atau membatalkan keputusan; HR hanya menandai \"diketahui\". Semua keputusan tercatat di Log Aktivitas.
+
+**Tugas luar:** diajukan karyawan (tujuan/lokasi wajib), tidak memakai kuota izin maupun saldo cuti. Setelah disetujui Direksi, karyawan **tetap presensi**
+(selfie + GPS + jam tetap divalidasi) tetapi radius kantor tidak dicek pada tanggal tersebut. Presensinya bertanda *tugas luar* di monitoring dan laporan.
+
+**Lembur:** bila presensi pulang melewati `jam_pulang` + batas lembur (default 30 menit, ubah di **Pengaturan**), karyawan wajib mengisi keterangan lembur.
+Lembur masuk status *Menunggu* → Direksi menyetujui/menolak, HR menandai diketahui (menu **Lembur**). Durasi dan keterangannya tampil di laporan presensi dan CSV.
 
 **KPI disiplin** (periode bulanan; hari mendatang & hari ini yang belum presensi tidak dihitung):
 `kehadiran% = hadir / (hari kerja − izin/sakit/cuti disetujui)`, `ketepatan% = (hadir − terlambat)/hadir`,

@@ -20,7 +20,7 @@ class PengajuanService
     public function __construct(private JadwalService $jadwal) {}
 
     /**
-     * @param  array{jenis: int|string, tgl_izin: string, tgl_selesai?: string|null, keterangan: string}  $data
+     * @param  array{jenis: int|string, tgl_izin: string, tgl_selesai?: string|null, keterangan: string, lokasi_tugas?: string|null}  $data
      *
      * @throws AturanBisnisException
      */
@@ -60,13 +60,21 @@ class PengajuanService
             if ($this->jumlahPengajuanBulan($karyawan, $mulai) >= $kuota) {
                 throw new AturanBisnisException("Kuota izin/sakit bulan tersebut sudah habis (maksimal {$kuota} kali).");
             }
-        } else {
+        } elseif ($jenis->memakaiSaldoCuti()) {
             if ($mulai->year !== $selesai->year) {
                 throw new AturanBisnisException('Cuti lintas tahun harap diajukan terpisah per tahun.');
             }
             $sisa = $this->sisaCuti($karyawan, $mulai->year);
             if ($hari > $sisa) {
                 throw new AturanBisnisException("Sisa cuti Anda {$sisa} hari, pengajuan ini {$hari} hari kerja.");
+            }
+        }
+
+        $lokasiTugas = null;
+        if ($jenis === JenisPengajuan::TugasLuar) {
+            $lokasiTugas = trim((string) ($data['lokasi_tugas'] ?? ''));
+            if ($lokasiTugas === '') {
+                throw new AturanBisnisException('Tujuan/lokasi tugas luar wajib diisi.');
             }
         }
 
@@ -78,6 +86,7 @@ class PengajuanService
             'keterangan' => $data['keterangan'],
             'status_approved' => StatusPengajuan::Menunggu->value,
             'jumlah_hari' => $hari,
+            'lokasi_tugas' => $lokasiTugas !== null ? mb_substr($lokasiTugas, 0, 150) : null,
             'lampiran' => $lampiran?->store('lampiran/'.$mulai->year, config('presensi.foto.disk')),
         ]);
     }
@@ -134,9 +143,12 @@ class PengajuanService
         $pengajuan->update(['status_approved' => StatusPengajuan::Dibatalkan->value]);
     }
 
-    /** HR menyetujui/menolak pengajuan yang menunggu. */
+    /** Direksi menyetujui/menolak pengajuan yang menunggu. */
     public function putuskan(PengajuanIzin $pengajuan, StatusPengajuan $keputusan, User $user, ?string $catatan = null): void
     {
+        if (! $user->bolehMemutuskan()) {
+            throw new AturanBisnisException('Hanya Direksi yang dapat menyetujui atau menolak pengajuan.');
+        }
         if (! in_array($keputusan, [StatusPengajuan::Disetujui, StatusPengajuan::Ditolak], true)) {
             throw new AturanBisnisException('Keputusan tidak valid.');
         }
@@ -152,7 +164,20 @@ class PengajuanService
         ]);
     }
 
-    /** HR membatalkan keputusan sebelumnya (kembali ke Menunggu). */
+    /** HR/Admin menandai bahwa pengajuan ini sudah diketahui (pemberitahuan, bukan persetujuan). */
+    public function tandaiDiketahuiHr(PengajuanIzin $pengajuan, User $user): void
+    {
+        if (! $user->penerimaInfo()) {
+            throw new AturanBisnisException('Hanya HR atau Admin yang dapat menandai pengajuan sebagai diketahui.');
+        }
+        if ($pengajuan->sudahDiketahuiHr()) {
+            return;
+        }
+
+        $pengajuan->update(['diketahui_hr_oleh' => $user->getKey(), 'diketahui_hr_pada' => now()]);
+    }
+
+    /** Direksi membatalkan keputusan sebelumnya (kembali ke Menunggu). */
     public function kembalikanKeMenunggu(PengajuanIzin $pengajuan): void
     {
         if (! in_array($pengajuan->status_approved, [StatusPengajuan::Disetujui, StatusPengajuan::Ditolak], true)) {

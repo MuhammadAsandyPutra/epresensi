@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Karyawan;
 use App\Exceptions\AturanBisnisException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Karyawan\PresensiRequest;
+use App\Enums\JenisPengajuan;
+use App\Enums\StatusPengajuan;
 use App\Models\Pengaturan;
+use App\Models\PengajuanIzin;
 use App\Models\Presensi;
 use App\Services\JadwalService;
 use App\Services\PresensiService;
@@ -26,6 +29,11 @@ class PresensiController extends Controller
             'jamKerja' => $jadwal->untukTanggal($karyawan, now()),
             'presensi' => Presensi::query()->where('nik', $karyawan->nik)->where('tanggal_presensi', now()->toDateString())->first(),
             'akurasiMaks' => (int) Pengaturan::ambil('gps.akurasi_maks'),
+            // Tugas luar yang sudah disetujui hari ini: radius kantor tidak dipakai.
+            'tugasLuar' => PengajuanIzin::query()->where('nik', $karyawan->nik)
+                ->where('status_approved', StatusPengajuan::Disetujui->value)
+                ->where('status', JenisPengajuan::TugasLuar->value)
+                ->berimpitDengan(now()->toDateString(), now()->toDateString())->first(),
         ]);
     }
 
@@ -38,6 +46,7 @@ class PresensiController extends Controller
                 $request->filled('akurasi') ? (float) $request->input('akurasi') : null,
                 $request->string('foto')->toString(),
                 $request->ip(),
+                $request->filled('keterangan_lembur') ? $request->string('keterangan_lembur')->toString() : null,
             );
         } catch (AturanBisnisException $e) {
             return response()->json(['ok' => false, 'pesan' => $e->getMessage(), 'kode' => $e->kode], 422);

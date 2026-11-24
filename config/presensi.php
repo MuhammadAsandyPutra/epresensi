@@ -34,6 +34,11 @@ return [
         'lampiran_maks_kb'   => 2048,
     ],
 
+    'lembur' => [
+        // Pulang setelah jam pulang + sekian menit dianggap lembur dan wajib diberi keterangan.
+        'minimal_menit' => 30,
+    ],
+
     'cuti' => [
         'jatah_tahunan' => 12,
     ],

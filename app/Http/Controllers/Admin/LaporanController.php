@@ -44,10 +44,12 @@ class LaporanController extends Controller
 
         return Csv::unduh(
             "presensi-{$karyawan->nik}-{$awal->format('Y-m')}.csv",
-            ['Tanggal', 'Hari', 'Masuk', 'Pulang', 'Status', 'Terlambat (menit)', 'Pulang cepat', 'Keterangan'],
+            ['Tanggal', 'Hari', 'Masuk', 'Pulang', 'Status', 'Terlambat (menit)', 'Pulang cepat', 'Keterangan', 'Tugas luar', 'Lembur (menit)', 'Status lembur', 'Keterangan lembur'],
             $baris->map(fn ($b) => [
                 $b['tanggal']->format('Y-m-d'), $b['hari'], Waktu::hm($b['jam_in']), Waktu::hm($b['jam_out']),
                 $b['status']->label(), $b['terlambat_menit'], $b['pulang_cepat'] ? 'Ya' : 'Tidak', $b['keterangan'],
+                $b['tugas_luar'] && $b['presensi'] ? 'Ya' : 'Tidak',
+                $b['presensi']?->lembur_menit, $b['presensi']?->lembur_status?->label(), $b['presensi']?->keterangan_lembur,
             ]),
         );
     }

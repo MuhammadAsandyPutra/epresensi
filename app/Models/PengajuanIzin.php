@@ -17,12 +17,14 @@ class PengajuanIzin extends Model
     protected $fillable = [
         'nik', 'tgl_izin', 'tgl_selesai', 'status', 'keterangan', 'status_approved',
         'jumlah_hari', 'lampiran', 'catatan_hr', 'diputuskan_oleh', 'diputuskan_pada',
+        'lokasi_tugas', 'diketahui_hr_oleh', 'diketahui_hr_pada',
     ];
 
     protected function casts(): array
     {
         return [
             'diputuskan_pada' => 'datetime',
+            'diketahui_hr_pada' => 'datetime',
             'status' => JenisPengajuan::class,          // jenis pengajuan
             'status_approved' => StatusPengajuan::class, // keputusan HR
         ];
@@ -42,6 +44,17 @@ class PengajuanIzin extends Model
     public function karyawan(): BelongsTo
     {
         return $this->belongsTo(Karyawan::class, 'nik', 'nik');
+    }
+
+    /** Direksi yang memutuskan. */
+    public function pemutus(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'diputuskan_oleh');
+    }
+
+    public function sudahDiketahuiHr(): bool
+    {
+        return $this->diketahui_hr_pada !== null;
     }
 
     public function jenis(): JenisPengajuan

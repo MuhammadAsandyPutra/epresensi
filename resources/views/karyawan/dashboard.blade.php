@@ -40,6 +40,9 @@
         @if ($hariIni['terlambat_menit'] > 0)
             <div class="text-center mt-1" style="font-size:12px;color:#b3660d">Terlambat {{ $hariIni['terlambat_menit'] }} menit</div>
         @endif
+        @if ($presensi->adaLembur())
+            <div class="text-center mt-2"><span class="status-chip chip-{{ $presensi->lembur_status->warna() }}">Lembur {{ $presensi->lembur_menit }} mnt · {{ $presensi->lembur_status->label() }}</span></div>
+        @endif
         @if (! $presensi->jam_out)
             <div class="garis"></div>
             <a href="{{ route('presensi.create') }}" class="tombol-hijau merah"><ion-icon name="camera-outline"></ion-icon> Presensi Pulang</a>
@@ -55,6 +58,13 @@
         <p class="mb-0 mt-3 text-center text-muted">Presensi tidak diperlukan hari ini.</p>
     @endif
 </div>
+
+@if ($hariIni['tugas_luar'] && ! ($presensi && $presensi->jam_out))
+    <div class="kartu" style="margin-top:12px;background:#f4eefb">
+        <div style="font-weight:600;color:#6b3fa0"><ion-icon name="navigate-outline"></ion-icon> Tugas luar hari ini</div>
+        <div style="font-size:13px;margin-top:4px">{{ $hariIni['keterangan'] ?? '' }}. Presensi dilakukan dari lokasi tugas (radius kantor tidak berlaku).</div>
+    </div>
+@endif
 
 <div class="grid-ringkas">
     <div class="sel"><div class="angka">{{ $ringkasan['hadir'] }}</div><div class="label">Hadir</div></div>

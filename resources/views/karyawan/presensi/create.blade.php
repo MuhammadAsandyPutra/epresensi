@@ -11,11 +11,15 @@
 @php
     $kantor = $cabang?->koordinat();
     $selesai = $presensi && $presensi->jam_out;
-    $bisa = $kantor && $jamKerja && ! $selesai;
+    // Saat tugas luar disetujui, lokasi kantor tidak wajib: presensi dilakukan dari lokasi tugas.
+    $bisa = ($kantor || $tugasLuar) && $jamKerja && ! $selesai;
 @endphp
 
 <div class="px-3 pt-2">
-    @if (! $cabang || ! $kantor)
+    @if ($tugasLuar)
+        <div class="alert" style="background:#f4eefb;color:#6b3fa0"><strong>Tugas luar disetujui:</strong> {{ $tugasLuar->lokasi_tugas }}. Presensi dari lokasi tugas; radius kantor tidak berlaku, selfie dan GPS tetap dicatat.</div>
+    @endif
+    @if (! $tugasLuar && (! $cabang || ! $kantor))
         <div class="alert alert-danger">Lokasi kantor Anda belum diatur. Hubungi HR.</div>
     @elseif (! $jamKerja)
         <div class="alert alert-warning">Hari ini bukan hari kerja Anda (libur / di luar jadwal).</div>
@@ -52,7 +56,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (function () {
-    const KANTOR = { lat: {{ $kantor[0] }}, lng: {{ $kantor[1] }}, radius: {{ (int) $cabang->radius_cabang }} };
+    const KANTOR = @json($kantor ? ['lat' => $kantor[0], 'lng' => $kantor[1], 'radius' => (int) $cabang->radius_cabang] : null);
+    const TUGAS_LUAR = @json((bool) $tugasLuar);
     const AKURASI_MAKS = {{ (int) $akurasiMaks }};
     const URL_SIMPAN = @json(route('presensi.store'));
     const URL_BERANDA = @json(route('dashboard'));
@@ -68,9 +73,11 @@
     setInterval(() => { document.getElementById('jam').textContent = new Date().toLocaleTimeString('id-ID', { hour12: false }); }, 1000);
 
     // Peta (hanya tampilan; validasi jarak sebenarnya dilakukan di server)
-    const peta = L.map('peta', { zoomControl: false }).setView([KANTOR.lat, KANTOR.lng], 17);
+    const peta = L.map('peta', { zoomControl: false }).setView(KANTOR ? [KANTOR.lat, KANTOR.lng] : [-2.5, 118], KANTOR ? 17 : 5);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(peta);
-    L.circle([KANTOR.lat, KANTOR.lng], { color: '#174d37', fillColor: '#174d37', fillOpacity: .2, radius: KANTOR.radius }).addTo(peta);
+    if (KANTOR && !TUGAS_LUAR) {
+        L.circle([KANTOR.lat, KANTOR.lng], { color: '#174d37', fillColor: '#174d37', fillOpacity: .2, radius: KANTOR.radius }).addTo(peta);
+    }
     let penanda = null;
 
     function jarak(lat1, lng1, lat2, lng2) {
@@ -90,13 +97,19 @@
     }
 
     function padaPosisi(p) {
-        const d = jarak(p.coords.latitude, p.coords.longitude, KANTOR.lat, KANTOR.lng);
-        posisi = { lat: p.coords.latitude, lng: p.coords.longitude, akurasi: p.coords.accuracy, dalam: d <= KANTOR.radius, akurat: p.coords.accuracy <= AKURASI_MAKS };
+        const d = KANTOR ? jarak(p.coords.latitude, p.coords.longitude, KANTOR.lat, KANTOR.lng) : null;
+        // Tugas luar: radius kantor dilewati (server tetap memvalidasi akurasi, jam, dan foto).
+        posisi = { lat: p.coords.latitude, lng: p.coords.longitude, akurasi: p.coords.accuracy, dalam: TUGAS_LUAR || (d !== null && d <= KANTOR.radius), akurat: p.coords.accuracy <= AKURASI_MAKS };
 
         if (!penanda) { penanda = L.marker([posisi.lat, posisi.lng]).addTo(peta); } else { penanda.setLatLng([posisi.lat, posisi.lng]); }
-        peta.fitBounds(L.latLngBounds([[posisi.lat, posisi.lng], [KANTOR.lat, KANTOR.lng]]).pad(.4), { maxZoom: 18 });
+        if (KANTOR && !TUGAS_LUAR) {
+            peta.fitBounds(L.latLngBounds([[posisi.lat, posisi.lng], [KANTOR.lat, KANTOR.lng]]).pad(.4), { maxZoom: 18 });
+        } else {
+            peta.setView([posisi.lat, posisi.lng], 17);
+        }
 
         if (!posisi.akurat) setStatus('cari', 'warning-outline', 'Akurasi GPS ' + Math.round(posisi.akurasi) + ' m (maks ' + AKURASI_MAKS + ' m). Pindah ke area terbuka…');
+        else if (TUGAS_LUAR) setStatus('ok', 'navigate-outline', 'Mode tugas luar: lokasi Anda terbaca (akurasi ' + Math.round(posisi.akurasi) + ' m).');
         else if (!posisi.dalam) setStatus('salah', 'close-circle-outline', 'Anda ' + d + ' m dari kantor. Radius maksimal ' + KANTOR.radius + ' m.');
         else setStatus('ok', 'checkmark-circle-outline', 'Di dalam area kantor (' + d + ' m, akurasi ' + Math.round(posisi.akurasi) + ' m).');
         perbarui();
@@ -130,31 +143,61 @@
         return kanvas.toDataURL('image/jpeg', 0.8);
     }
 
-    tombol.addEventListener('click', async () => {
-        if (!posisi || mengirim) return;
+    const TEKS_TOMBOL = @json($presensi ? 'Presensi Pulang' : 'Presensi Masuk');
+    let fotoTerakhir = null;
+
+    function selesaiKirim() {
+        mengirim = false;
+        document.getElementById('teksTombol').textContent = TEKS_TOMBOL;
+        perbarui();
+    }
+
+    async function kirim(keteranganLembur) {
         mengirim = true; perbarui();
         document.getElementById('teksTombol').textContent = 'Mengirim…';
 
         try {
+            const muatan = { lokasi: posisi.lat + ',' + posisi.lng, akurasi: posisi.akurasi, foto: fotoTerakhir };
+            if (keteranganLembur) muatan.keterangan_lembur = keteranganLembur;
+
             const res = await fetch(URL_SIMPAN, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
-                body: JSON.stringify({ lokasi: posisi.lat + ',' + posisi.lng, akurasi: posisi.akurasi, foto: ambilFoto() }),
+                body: JSON.stringify(muatan),
             });
             const json = await res.json().catch(() => ({}));
 
             if (res.ok && json.ok) {
-                await Swal.fire({ icon: 'success', title: json.jenis === 'masuk' ? 'Presensi Masuk Berhasil' : 'Presensi Pulang Berhasil', text: json.pesan, timer: 2500, showConfirmButton: false });
+                await Swal.fire({ icon: 'success', title: json.jenis === 'masuk' ? 'Presensi Masuk Berhasil' : 'Presensi Pulang Berhasil', text: json.pesan, timer: 2800, showConfirmButton: false });
                 location.href = URL_BERANDA;
                 return;
             }
+
+            // Pulang melewati jam kerja: minta keterangan lembur, lalu kirim ulang foto yang sama.
+            if (json.kode === 'lembur') {
+                selesaiKirim();
+                const hasil = await Swal.fire({
+                    icon: 'question', title: 'Keterangan lembur', text: json.pesan,
+                    input: 'textarea', inputPlaceholder: 'Tulis pekerjaan yang dilakukan selama lembur',
+                    inputAttributes: { maxlength: 500 }, inputValue: keteranganLembur || '',
+                    showCancelButton: true, confirmButtonText: 'Kirim presensi pulang', cancelButtonText: 'Batal',
+                    inputValidator: (v) => (!v || v.trim().length < 5) ? 'Keterangan minimal 5 karakter.' : null,
+                });
+                if (hasil.isConfirmed) { return kirim(hasil.value.trim()); }
+                return;
+            }
+
             Swal.fire({ icon: 'error', title: 'Presensi gagal', text: json.pesan || json.message || 'Terjadi kesalahan. Coba lagi.' });
         } catch (e) {
             Swal.fire({ icon: 'error', title: 'Tidak ada koneksi', text: 'Periksa jaringan Anda lalu coba lagi.' });
         }
-        mengirim = false;
-        document.getElementById('teksTombol').textContent = @json($presensi ? 'Presensi Pulang' : 'Presensi Masuk');
-        perbarui();
+        selesaiKirim();
+    }
+
+    tombol.addEventListener('click', () => {
+        if (!posisi || mengirim) return;
+        fotoTerakhir = ambilFoto();
+        kirim(null);
     });
 })();
 </script>

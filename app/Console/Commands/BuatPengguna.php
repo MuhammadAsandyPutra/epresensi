@@ -8,15 +8,15 @@ use Illuminate\Support\Str;
 
 class BuatPengguna extends Command
 {
-    protected $signature = 'presensi:buat-pengguna {email} {nama} {--role=hr : admin atau hr} {--password= : kosongkan untuk dibuat acak}';
+    protected $signature = 'presensi:buat-pengguna {email} {nama} {--role=hr : admin, hr, atau direksi} {--password= : kosongkan untuk dibuat acak}';
 
-    protected $description = 'Buat akun panel (Admin/HR)';
+    protected $description = 'Buat akun panel (Admin/HR/Direksi)';
 
     public function handle(): int
     {
         $role = $this->option('role');
-        if (! in_array($role, [User::ROLE_ADMIN, User::ROLE_HR], true)) {
-            $this->error('Role harus "admin" atau "hr".');
+        if (! array_key_exists((string) $role, User::ROLE_LABEL)) {
+            $this->error('Role harus "admin", "hr", atau "direksi".');
 
             return self::FAILURE;
         }

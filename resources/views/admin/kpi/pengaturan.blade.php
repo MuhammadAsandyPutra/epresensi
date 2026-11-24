@@ -47,6 +47,7 @@
             {!! $f('cuti_jatah_tahunan', 'Jatah cuti default (hari/tahun)', 'Dipakai bila jatah karyawan kosong') !!}
             {!! $f('gps_akurasi_maks', 'Akurasi GPS maksimal (meter)', 'Lebih buruk dari ini → presensi ditolak') !!}
             {!! $f('gps_review_akurasi', 'Tandai "perlu review" bila akurasi > (meter)') !!}
+            {!! $f('lembur_minimal_menit', 'Lembur dihitung setelah jam pulang + (menit)', 'Pulang melewati batas ini wajib mengisi keterangan lembur') !!}
         </div></div>
         <div class="card-footer text-end"><button class="btn btn-primary">Simpan Pengaturan</button></div>
     </div>

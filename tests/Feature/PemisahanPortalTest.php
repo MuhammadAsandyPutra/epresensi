@@ -45,6 +45,15 @@ class PemisahanPortalTest extends TestCase
         $this->actingAs($hr, 'user')->get('/panel/jam-kerja')->assertForbidden();
     }
 
+    public function test_direksi_membuka_panel_tetapi_bukan_konfigurasi_admin(): void
+    {
+        $direksi = $this->buatAdmin(User::ROLE_DIREKSI);
+
+        $this->actingAs($direksi, 'user')->get('/panel/dashboard')->assertOk();
+        $this->actingAs($direksi, 'user')->get('/panel/cabang')->assertForbidden();
+        $this->actingAs($direksi, 'user')->get('/panel/jam-kerja')->assertForbidden();
+    }
+
     public function test_login_karyawan_nonaktif_ditolak(): void
     {
         $this->buatKaryawan('2002', ['aktif' => false]);

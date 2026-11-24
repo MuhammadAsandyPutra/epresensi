@@ -19,6 +19,7 @@ class PengaturanController extends Controller
         'kpi_batas_sangat_baik', 'kpi_batas_baik', 'kpi_batas_cukup',
         'izin_kuota_bulanan', 'izin_sakit_mundur_hari', 'cuti_jatah_tahunan',
         'gps_akurasi_maks', 'gps_review_akurasi',
+        'lembur_minimal_menit',
     ];
 
     public function edit(): View

@@ -1,7 +1,7 @@
 @extends('layouts.karyawan')
 
 @section('judul', 'Izin / Cuti')
-@section('header', 'Izin, Sakit & Cuti')
+@section('header', 'Izin, Sakit, Cuti & Tugas Luar')
 
 @section('content')
 <div style="height:8px"></div>
@@ -17,9 +17,15 @@
             </div>
             <span class="status-chip chip-{{ $p->status_approved->warna() }}">{{ $p->status_approved->label() }}</span>
         </div>
+        @if ($p->lokasi_tugas)
+            <div style="font-size:14px;margin-top:8px;font-weight:600"><ion-icon name="location-outline"></ion-icon> {{ $p->lokasi_tugas }}</div>
+        @endif
         <div style="font-size:14px;margin-top:8px">{{ $p->keterangan }}</div>
+        @if ($p->status_approved === \App\Enums\StatusPengajuan::Menunggu)
+            <div style="font-size:12px;margin-top:6px;color:var(--redam)">Menunggu persetujuan Direksi</div>
+        @endif
         @if ($p->catatan_hr)
-            <div style="font-size:13px;margin-top:8px;background:#f2f5f3;border-radius:10px;padding:8px 10px"><strong>Catatan HR:</strong> {{ $p->catatan_hr }}</div>
+            <div style="font-size:13px;margin-top:8px;background:#f2f5f3;border-radius:10px;padding:8px 10px"><strong>Catatan Direksi:</strong> {{ $p->catatan_hr }}</div>
         @endif
         <div class="d-flex justify-content-between align-items-center mt-2">
             @if ($p->lampiran)

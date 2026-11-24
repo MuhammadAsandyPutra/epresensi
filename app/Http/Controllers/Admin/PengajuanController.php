@@ -23,16 +23,20 @@ class PengajuanController extends Controller
     {
         $f = $request->validate([
             'cari' => ['nullable', 'string', 'max:100'],
-            'jenis' => ['nullable', 'integer', 'in:1,2,3'],
+            'jenis' => ['nullable', 'integer', 'in:1,2,3,4'],
             'status' => ['nullable', 'integer', 'in:0,1,2,3'],
+            'diketahui' => ['nullable', 'in:0,1'],
             'dari' => ['nullable', 'date'],
             'sampai' => ['nullable', 'date', 'after_or_equal:dari'],
         ]);
 
-        $daftar = PengajuanIzin::query()->with('karyawan.departemen')
+        $daftar = PengajuanIzin::query()->with(['karyawan.departemen', 'pemutus'])
             ->when($f['cari'] ?? null, fn ($q, $c) => $q->whereHas('karyawan', fn ($k) => $k->where('nama_lengkap', 'like', "%{$c}%")->orWhere('nik', 'like', "%{$c}%")))
             ->when(isset($f['jenis']), fn ($q) => $q->where('status', $f['jenis']))
             ->when(isset($f['status']), fn ($q) => $q->where('status_approved', $f['status']))
+            ->when(isset($f['diketahui']), fn ($q) => $f['diketahui'] === '1'
+                ? $q->whereNotNull('diketahui_hr_pada')
+                : $q->whereNull('diketahui_hr_pada')->where('status_approved', '!=', StatusPengajuan::Dibatalkan->value))
             ->when($f['dari'] ?? null, fn ($q, $d) => $q->where('tgl_izin', '>=', $d))
             ->when($f['sampai'] ?? null, fn ($q, $s) => $q->where('tgl_izin', '<=', $s))
             // Yang menunggu tampil paling atas.
@@ -66,6 +70,20 @@ class PengajuanController extends Controller
         LogAktivitas::catat($setuju ? 'pengajuan.setuju' : 'pengajuan.tolak', "{$pengajuan->jenis()->label()} {$pengajuan->nik} #{$pengajuan->id}");
 
         return back()->with('sukses', 'Pengajuan '.($setuju ? 'disetujui.' : 'ditolak.'));
+    }
+
+    /** HR/Admin menandai pengajuan sudah diketahui (pemberitahuan). */
+    public function ketahui(PengajuanIzin $pengajuan): RedirectResponse
+    {
+        try {
+            $this->service->tandaiDiketahuiHr($pengajuan, Auth::guard('user')->user());
+        } catch (AturanBisnisException $e) {
+            return back()->with('galat', $e->getMessage());
+        }
+
+        LogAktivitas::catat('pengajuan.diketahui', "{$pengajuan->jenis()->label()} {$pengajuan->nik} #{$pengajuan->id} diketahui HR");
+
+        return back()->with('sukses', 'Ditandai sudah diketahui.');
     }
 
     public function kembalikan(PengajuanIzin $pengajuan): RedirectResponse

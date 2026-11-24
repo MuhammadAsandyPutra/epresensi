@@ -64,6 +64,7 @@ body { background: #f2f5f3; color: var(--teks); }
 .chip-danger { background: #fbe0dc; color: #b3261e; }
 .chip-info, .chip-primary { background: #dce9fb; color: #1d5fb4; }
 .chip-secondary, .chip-lime { background: #e8ecea; color: #5b6862; }
+.chip-purple { background: #ece3f8; color: #6b3fa0; }
 .tombol-hijau { display: block; width: 100%; text-align: center; background: var(--hijau); color: #fff !important; border-radius: 12px; padding: 12px; font-weight: 600; }
 .tombol-hijau.merah { background: #b3261e; }
 .fab-baru { position: fixed; right: 18px; bottom: 90px; background: var(--emas); color: #1b1b1b; width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; box-shadow: 0 6px 16px rgba(0,0,0,.2); z-index: 20; }

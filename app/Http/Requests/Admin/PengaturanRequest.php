@@ -28,6 +28,7 @@ class PengaturanRequest extends FormRequest
             'cuti_jatah_tahunan' => ['required', 'integer', 'between:0,60'],
             'gps_akurasi_maks' => ['required', 'integer', 'between:10,1000'],
             'gps_review_akurasi' => ['required', 'integer', 'between:10,1000'],
+            'lembur_minimal_menit' => ['required', 'integer', 'between:1,240'],
         ];
     }
 

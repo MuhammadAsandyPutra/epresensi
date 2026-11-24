@@ -17,21 +17,28 @@
             <ul class="navbar-nav pt-lg-3">
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.dashboard') }}" href="{{ route('panel.dashboard') }}"><span class="nav-link-icon"><i class="ti ti-layout-dashboard"></i></span><span class="nav-link-title">Dashboard</span></a></li>
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.monitoring') }}" href="{{ route('panel.monitoring') }}"><span class="nav-link-icon"><i class="ti ti-map-pin"></i></span><span class="nav-link-title">Monitoring Presensi</span></a></li>
-                <li class="nav-item"><a class="nav-link {{ $menu('panel.pengajuan.*') }}" href="{{ route('panel.pengajuan.index') }}"><span class="nav-link-icon"><i class="ti ti-calendar-event"></i></span><span class="nav-link-title">Izin / Sakit / Cuti</span>
-                    @if ($jumlahMenunggu > 0)<span class="badge bg-red ms-auto">{{ $jumlahMenunggu }}</span>@endif</a></li>
+                <li class="nav-item"><a class="nav-link {{ $menu('panel.pengajuan.*') }}" href="{{ route('panel.pengajuan.index') }}"><span class="nav-link-icon"><i class="ti ti-calendar-event"></i></span><span class="nav-link-title">Izin / Sakit / Cuti / Tugas Luar</span>
+                    @if ($badgePengajuan > 0)<span class="badge bg-red ms-auto" title="{{ $user->isDireksi() ? 'Menunggu keputusan Anda' : 'Belum diketahui' }}">{{ $badgePengajuan }}</span>@endif</a></li>
+                <li class="nav-item"><a class="nav-link {{ $menu('panel.lembur.*') }}" href="{{ route('panel.lembur.index') }}"><span class="nav-link-icon"><i class="ti ti-clock-plus"></i></span><span class="nav-link-title">Lembur</span>
+                    @if ($badgeLembur > 0)<span class="badge bg-red ms-auto" title="{{ $user->isDireksi() ? 'Menunggu keputusan Anda' : 'Belum diketahui' }}">{{ $badgeLembur }}</span>@endif</a></li>
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.kpi*') }}" href="{{ route('panel.kpi') }}"><span class="nav-link-icon"><i class="ti ti-chart-bar"></i></span><span class="nav-link-title">KPI Karyawan</span></a></li>
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.laporan*') }}" href="{{ route('panel.laporan') }}"><span class="nav-link-icon"><i class="ti ti-file-text"></i></span><span class="nav-link-title">Laporan &amp; Rekap</span></a></li>
 
+                @if ($user->penerimaInfo())
+                {{-- Data master & pengaturan: Admin dan HR (Direksi hanya memantau dan memutuskan) --}}
                 <li class="nav-item mt-3"><span class="nav-link text-secondary text-uppercase fs-5 fw-bold">Data Master</span></li>
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.karyawan.*') }}" href="{{ route('panel.karyawan.index') }}"><span class="nav-link-icon"><i class="ti ti-users"></i></span><span class="nav-link-title">Karyawan</span></a></li>
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.departemen.*') }}" href="{{ route('panel.departemen.index') }}"><span class="nav-link-icon"><i class="ti ti-building"></i></span><span class="nav-link-title">Departemen</span></a></li>
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.hari-libur.*') }}" href="{{ route('panel.hari-libur.index') }}"><span class="nav-link-icon"><i class="ti ti-beach"></i></span><span class="nav-link-title">Hari Libur</span></a></li>
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.pengaturan*') }}" href="{{ route('panel.pengaturan') }}"><span class="nav-link-icon"><i class="ti ti-adjustments"></i></span><span class="nav-link-title">Pengaturan KPI &amp; Kebijakan</span></a></li>
 
+                @endif
+
                 @if ($user->isAdmin())
                     <li class="nav-item mt-3"><span class="nav-link text-secondary text-uppercase fs-5 fw-bold">Konfigurasi (Admin)</span></li>
                     <li class="nav-item"><a class="nav-link {{ $menu('panel.cabang.*') }}" href="{{ route('panel.cabang.index') }}"><span class="nav-link-icon"><i class="ti ti-map-2"></i></span><span class="nav-link-title">Lokasi Kantor</span></a></li>
                     <li class="nav-item"><a class="nav-link {{ $menu('panel.jam-kerja.*') }}" href="{{ route('panel.jam-kerja.index') }}"><span class="nav-link-icon"><i class="ti ti-clock"></i></span><span class="nav-link-title">Jam Kerja</span></a></li>
+                    <li class="nav-item"><a class="nav-link {{ $menu('panel.pengguna.*') }}" href="{{ route('panel.pengguna.index') }}"><span class="nav-link-icon"><i class="ti ti-user-shield"></i></span><span class="nav-link-title">Akun Panel</span></a></li>
                     <li class="nav-item"><a class="nav-link {{ $menu('panel.log') }}" href="{{ route('panel.log') }}"><span class="nav-link-icon"><i class="ti ti-history"></i></span><span class="nav-link-title">Log Aktivitas</span></a></li>
                 @endif
             </ul>

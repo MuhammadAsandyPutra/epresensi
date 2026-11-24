@@ -17,6 +17,7 @@ class PresensiRequest extends FormRequest
             'lokasi' => ['required', 'string', 'max:60'],   // "lat,lng"
             'akurasi' => ['nullable', 'numeric', 'min:0'],  // meter
             'foto' => ['required', 'string'],               // data URL base64
+            'keterangan_lembur' => ['nullable', 'string', 'max:500'], // wajib bila pulang melewati batas lembur (dicek di service)
         ];
     }
 

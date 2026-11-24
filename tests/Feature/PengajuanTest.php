@@ -86,17 +86,55 @@ class PengajuanTest extends TestCase
         $this->service->ajukan($k, $this->data(['jenis' => 1, 'tgl_izin' => '2026-11-20', 'tgl_selesai' => '2026-11-20']));
     }
 
-    public function test_hr_menyetujui_dan_bisa_membatalkan_keputusan(): void
+    public function test_direksi_menyetujui_dan_bisa_membatalkan_keputusan(): void
+    {
+        $k = $this->buatKaryawan();
+        $direksi = $this->buatAdmin('direksi');
+        $p = $this->service->ajukan($k, $this->data());
+
+        $this->service->putuskan($p, StatusPengajuan::Disetujui, $direksi, 'OK');
+        $this->assertSame(StatusPengajuan::Disetujui, $p->fresh()->status_approved);
+
+        $this->service->kembalikanKeMenunggu($p->fresh());
+        $this->assertSame(StatusPengajuan::Menunggu, $p->fresh()->status_approved);
+    }
+
+    public function test_hr_tidak_boleh_memutuskan_hanya_menandai_diketahui(): void
     {
         $k = $this->buatKaryawan();
         $hr = $this->buatAdmin('hr');
         $p = $this->service->ajukan($k, $this->data());
 
-        $this->service->putuskan($p, StatusPengajuan::Disetujui, $hr, 'OK');
-        $this->assertSame(StatusPengajuan::Disetujui, $p->fresh()->status_approved);
+        try {
+            $this->service->putuskan($p, StatusPengajuan::Disetujui, $hr);
+            $this->fail('HR seharusnya tidak boleh memutuskan.');
+        } catch (AturanBisnisException) {
+            $this->assertSame(StatusPengajuan::Menunggu, $p->fresh()->status_approved);
+        }
 
-        $this->service->kembalikanKeMenunggu($p->fresh());
-        $this->assertSame(StatusPengajuan::Menunggu, $p->fresh()->status_approved);
+        $this->assertFalse($p->fresh()->sudahDiketahuiHr());
+        $this->service->tandaiDiketahuiHr($p, $hr);
+        $this->assertTrue($p->fresh()->sudahDiketahuiHr());
+        $this->assertSame($hr->id, (int) $p->fresh()->diketahui_hr_oleh);
+    }
+
+    public function test_tugas_luar_wajib_lokasi_dan_tidak_memakai_kuota_atau_cuti(): void
+    {
+        $k = $this->buatKaryawan();
+
+        try {
+            $this->service->ajukan($k, $this->data(['jenis' => 4, 'tgl_izin' => '2026-11-17', 'tgl_selesai' => '2026-11-17']));
+            $this->fail('Lokasi tugas wajib diisi.');
+        } catch (AturanBisnisException) {
+            $this->assertDatabaseCount('pengajuan_izin', 0);
+        }
+
+        // Empat tugas luar dalam sebulan: tidak terkena kuota izin/sakit (3x) dan tidak mengurangi saldo cuti.
+        foreach (['2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20'] as $tgl) {
+            $p = $this->service->ajukan($k, $this->data(['jenis' => 4, 'tgl_izin' => $tgl, 'tgl_selesai' => $tgl, 'lokasi_tugas' => 'Cabang Banjarmasin']));
+            $this->assertSame('Cabang Banjarmasin', $p->lokasi_tugas);
+        }
+        $this->assertSame(12, $this->service->sisaCuti($k, 2026));
     }
 
     public function test_karyawan_hanya_bisa_membatalkan_miliknya(): void

@@ -54,15 +54,15 @@ Route::prefix('panel')->name('panel.')->group(function () {
         Route::post('/login', [AdminLoginController::class, 'login'])->middleware('throttle:login')->name('login.proses');
     });
 
-    Route::middleware(['auth:user', 'role:admin,hr'])->group(function () {
+    // Dapat dibuka Admin, HR, dan Direksi (HR/Admin = pemantau, Direksi = pemberi persetujuan).
+    Route::middleware(['auth:user', 'role:admin,hr,direksi'])->group(function () {
         Route::post('/logout', [AdminLoginController::class, 'logout'])->name('logout');
         Route::get('/dashboard', [Admin\DashboardController::class, 'index'])->name('dashboard');
 
-        // Monitoring & pengajuan
+        // Monitoring, pengajuan, dan lembur (hanya daftar; keputusan ada di grup Direksi di bawah)
         Route::get('/monitoring', [Admin\MonitoringController::class, 'index'])->name('monitoring');
         Route::get('/pengajuan', [Admin\PengajuanController::class, 'index'])->name('pengajuan.index');
-        Route::post('/pengajuan/{pengajuan}/putuskan', [Admin\PengajuanController::class, 'putuskan'])->name('pengajuan.putuskan');
-        Route::post('/pengajuan/{pengajuan}/kembalikan', [Admin\PengajuanController::class, 'kembalikan'])->name('pengajuan.kembalikan');
+        Route::get('/lembur', [Admin\LemburController::class, 'index'])->name('lembur.index');
 
         // Laporan
         Route::get('/laporan', [Admin\LaporanController::class, 'index'])->name('laporan');
@@ -71,10 +71,27 @@ Route::prefix('panel')->name('panel.')->group(function () {
         Route::get('/laporan/rekap', [Admin\LaporanController::class, 'rekap'])->name('laporan.rekap');
         Route::get('/laporan/rekap/csv', [Admin\LaporanController::class, 'rekapCsv'])->name('laporan.rekap.csv');
 
-        // KPI & pengaturannya
+        // KPI (hanya baca)
         Route::get('/kpi', [Admin\KpiController::class, 'index'])->name('kpi');
         Route::get('/kpi/csv', [Admin\KpiController::class, 'csv'])->name('kpi.csv');
         Route::get('/kpi/{karyawan}', [Admin\KpiController::class, 'show'])->name('kpi.show');
+    });
+
+    // Keputusan izin/sakit/cuti/tugas luar dan lembur: khusus Direksi.
+    // (Ingin Admin ikut bisa memutuskan? ubah 'role:direksi' menjadi 'role:direksi,admin'
+    // dan ubah User::bolehMemutuskan().)
+    Route::middleware(['auth:user', 'role:direksi'])->group(function () {
+        Route::post('/pengajuan/{pengajuan}/putuskan', [Admin\PengajuanController::class, 'putuskan'])->name('pengajuan.putuskan');
+        Route::post('/pengajuan/{pengajuan}/kembalikan', [Admin\PengajuanController::class, 'kembalikan'])->name('pengajuan.kembalikan');
+        Route::post('/lembur/{presensi}/putuskan', [Admin\LemburController::class, 'putuskan'])->name('lembur.putuskan');
+        Route::post('/lembur/{presensi}/kembalikan', [Admin\LemburController::class, 'kembalikan'])->name('lembur.kembalikan');
+    });
+
+    // Data master & pengaturan, plus penanda "diketahui": HR dan Admin.
+    Route::middleware(['auth:user', 'role:admin,hr'])->group(function () {
+        Route::post('/pengajuan/{pengajuan}/ketahui', [Admin\PengajuanController::class, 'ketahui'])->name('pengajuan.ketahui');
+        Route::post('/lembur/{presensi}/ketahui', [Admin\LemburController::class, 'ketahui'])->name('lembur.ketahui');
+
         Route::get('/pengaturan', [Admin\PengaturanController::class, 'edit'])->name('pengaturan');
         Route::put('/pengaturan', [Admin\PengaturanController::class, 'update'])->name('pengaturan.update');
 
@@ -92,5 +109,6 @@ Route::prefix('panel')->name('panel.')->group(function () {
         Route::resource('cabang', Admin\CabangController::class)->except('show')->parameters(['cabang' => 'cabang']);
         Route::resource('jam-kerja', Admin\JamKerjaController::class)->except('show')->parameters(['jam-kerja' => 'jamKerja']);
         Route::get('/log', [Admin\LogController::class, 'index'])->name('log');
+        Route::resource('pengguna', Admin\PenggunaController::class)->except('show')->parameters(['pengguna' => 'pengguna']);
     });
 });

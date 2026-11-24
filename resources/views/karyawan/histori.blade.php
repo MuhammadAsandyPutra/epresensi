@@ -37,6 +37,8 @@
                     @if ($b['presensi'])
                         {{ \App\Support\Waktu::hm($b['jam_in']) }} – {{ \App\Support\Waktu::hm($b['jam_out']) }}
                         @if ($b['pulang_cepat']) · pulang cepat @endif
+                        @if ($b['presensi']->tugas_luar) · tugas luar @endif
+                        @if ($b['presensi']->adaLembur()) · lembur {{ $b['presensi']->lembur_menit }} mnt ({{ strtolower($b['presensi']->lembur_status->label()) }}) @endif
                     @else
                         {{ $b['keterangan'] ?? '—' }}
                     @endif

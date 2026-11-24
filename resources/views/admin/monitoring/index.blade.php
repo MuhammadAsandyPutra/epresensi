@@ -38,6 +38,8 @@
                     <td>
                         @if ($menit > 0)<span class="badge bg-orange-lt">Terlambat {{ $menit }} mnt</span>@else<span class="badge bg-green-lt">Tepat waktu</span>@endif
                         @if ($p->perlu_review)<span class="badge bg-red-lt" title="Akurasi GPS rendah atau koordinat berulang">Perlu review</span>@endif
+                        @if ($p->tugas_luar)<span class="badge bg-purple-lt" title="Presensi dari lokasi tugas luar yang disetujui">Tugas luar</span>@endif
+                        @if ($p->adaLembur())<span class="badge bg-{{ $p->lembur_status->warna() }}-lt" title="{{ $p->keterangan_lembur }}">Lembur {{ $p->lembur_menit }} mnt · {{ $p->lembur_status->label() }}</span>@endif
                     </td>
                     <td class="text-end">
                         @if ($lok && $kantor)
@@ -67,7 +69,8 @@
                 <tr>
                     <td>{{ $x['karyawan']->nama_lengkap }} <span class="text-secondary small">({{ $x['karyawan']->nik }})</span></td>
                     <td>{{ $x['karyawan']->departemen?->nama_dept }}</td>
-                    <td><span class="badge bg-{{ $x['baris']['status']->warna() }}-lt">{{ $x['baris']['status']->label() }}</span></td>
+                    <td><span class="badge bg-{{ $x['baris']['status']->warna() }}-lt">{{ $x['baris']['status']->label() }}</span>
+                        @if ($x['baris']['tugas_luar'])<div class="text-secondary small">{{ $x['baris']['keterangan'] }}</div>@endif</td>
                 </tr>
             @empty
                 <tr><td colspan="3" class="text-center text-secondary py-3">Tidak ada.</td></tr>

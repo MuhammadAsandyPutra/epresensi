@@ -19,6 +19,7 @@ class PengajuanRequest extends FormRequest
             'jenis' => ['required', Rule::in(array_map(fn ($j) => $j->value, JenisPengajuan::cases()))],
             'tgl_izin' => ['required', 'date'],
             'tgl_selesai' => ['nullable', 'date', 'after_or_equal:tgl_izin'],
+            'lokasi_tugas' => ['nullable', 'string', 'max:150', 'required_if:jenis,'.JenisPengajuan::TugasLuar->value],
             'keterangan' => ['required', 'string', 'min:5', 'max:500'],
             'lampiran' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:'.config('presensi.izin.lampiran_maks_kb')],
         ];
@@ -26,6 +27,6 @@ class PengajuanRequest extends FormRequest
 
     public function attributes(): array
     {
-        return ['tgl_izin' => 'tanggal mulai', 'tgl_selesai' => 'tanggal selesai'];
+        return ['tgl_izin' => 'tanggal mulai', 'tgl_selesai' => 'tanggal selesai', 'lokasi_tugas' => 'tujuan/lokasi tugas'];
     }
 }

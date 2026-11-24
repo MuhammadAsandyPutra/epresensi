@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\JenisPengajuan;
+use App\Enums\StatusPengajuan;
 use App\Exceptions\AturanBisnisException;
 use App\Models\Karyawan;
 use App\Models\Pengaturan;
@@ -25,11 +27,14 @@ class PresensiService
     /**
      * Catat presensi. Otomatis menentukan masuk atau pulang.
      *
-     * @return array{jenis: string, pesan: string, terlambat_menit: int}
+     * Saat tugas luar yang DISETUJUI berlaku pada hari ini, radius kantor tidak dicek (selfie, GPS,
+     * dan jam tetap divalidasi). Pulang melewati jam pulang + batas lembur wajib disertai keterangan lembur.
+     *
+     * @return array{jenis: string, pesan: string, terlambat_menit: int, lembur_menit: int}
      *
      * @throws AturanBisnisException bila ada aturan yang dilanggar
      */
-    public function catat(Karyawan $karyawan, string $lokasi, ?float $akurasi, string $fotoDataUrl, ?string $ip = null): array
+    public function catat(Karyawan $karyawan, string $lokasi, ?float $akurasi, string $fotoDataUrl, ?string $ip = null, ?string $keteranganLembur = null): array
     {
         $sekarang = now();
         $tanggal = $sekarang->toDateString();
@@ -38,9 +43,11 @@ class PresensiService
         $posisi = Geo::parse($lokasi)
             ?? throw new AturanBisnisException('Lokasi tidak terbaca. Aktifkan GPS lalu coba lagi.', 'lokasi');
 
+        $tugasLuar = $this->tugasLuarBerlaku($karyawan, $tanggal);
+
         $cabang = $karyawan->cabang;
         $kantor = $cabang?->koordinat();
-        if (! $cabang || ! $kantor) {
+        if (! $tugasLuar && (! $cabang || ! $kantor)) {
             throw new AturanBisnisException('Lokasi kantor Anda belum diatur. Hubungi HR.', 'kantor');
         }
 
@@ -52,8 +59,8 @@ class PresensiService
             );
         }
 
-        $jarak = Geo::jarak($posisi[0], $posisi[1], $kantor[0], $kantor[1]);
-        if ($jarak > (int) $cabang->radius_cabang) {
+        $jarak = $kantor ? Geo::jarak($posisi[0], $posisi[1], $kantor[0], $kantor[1]) : null;
+        if (! $tugasLuar && $jarak > (int) $cabang->radius_cabang) {
             throw new AturanBisnisException(
                 "Anda berada {$jarak} m dari kantor, radius maksimal {$cabang->radius_cabang} m.",
                 'radius'
@@ -87,8 +94,10 @@ class PresensiService
                     'kode_jam_kerja' => $jamKerja->kode_jam_kerja,
                     'jarak_in' => $jarak,
                     'akurasi_in' => $akurasi !== null ? (int) round($akurasi) : null,
-                    'perlu_review' => $this->mencurigakan($karyawan, $lokasi, $akurasi),
+                    // Saat tugas luar, koordinat yang sama berulang itu wajar (satu lokasi tugas).
+                    'perlu_review' => $this->mencurigakan($karyawan, $lokasi, $akurasi, ! $tugasLuar),
                     'ip_address' => $ip,
+                    'tugas_luar' => $tugasLuar !== null,
                 ]);
             } catch (UniqueConstraintViolationException) {
                 Storage::disk(config('presensi.foto.disk'))->delete($foto);
@@ -104,6 +113,7 @@ class PresensiService
                 'jenis' => 'masuk',
                 'pesan' => $menit > 0 ? "Presensi masuk tercatat. Anda terlambat {$menit} menit." : 'Terima kasih, selamat bekerja!',
                 'terlambat_menit' => $menit,
+                'lembur_menit' => 0,
             ];
         }
 
@@ -112,15 +122,42 @@ class PresensiService
                 throw new AturanBisnisException('Belum waktunya pulang (jam pulang ' . Waktu::hm($jamKerja->jam_pulang) . ').', 'waktu');
             }
 
+            // Lembur dicek SEBELUM foto disimpan: bila keterangan kosong, tidak ada berkas yang tertinggal.
+            $lembur = $this->menitLembur($jamKerja->jam_pulang, $jam);
+            $keterangan = trim((string) $keteranganLembur);
+            if ($lembur > 0) {
+                if ($keterangan === '') {
+                    throw new AturanBisnisException("Anda pulang {$lembur} menit setelah jam kerja. Isi keterangan lembur untuk melanjutkan.", 'lembur');
+                }
+                if (mb_strlen($keterangan) < 5) {
+                    throw new AturanBisnisException('Keterangan lembur terlalu singkat. Jelaskan pekerjaan yang dilakukan.', 'lembur');
+                }
+            }
+
             $foto = $this->simpanFoto($karyawan, $tanggal, 'out', $fotoDataUrl);
-            $presensi->update([
+            $ubah = [
                 'jam_out' => $jam,
                 'foto_out' => $foto,
                 'lokasi_out' => $lokasi,
                 'jarak_out' => $jarak,
-            ]);
+            ];
+            if ($lembur > 0) {
+                $ubah += [
+                    'lembur_menit' => $lembur,
+                    'keterangan_lembur' => mb_substr($keterangan, 0, 500),
+                    'lembur_status' => StatusPengajuan::Menunggu->value, // menunggu persetujuan Direksi
+                ];
+            }
+            $presensi->update($ubah);
 
-            return ['jenis' => 'pulang', 'pesan' => 'Presensi pulang tercatat. Hati-hati di jalan!', 'terlambat_menit' => 0];
+            return [
+                'jenis' => 'pulang',
+                'pesan' => $lembur > 0
+                    ? "Presensi pulang tercatat. Lembur {$lembur} menit dikirim ke Direksi untuk persetujuan."
+                    : 'Presensi pulang tercatat. Hati-hati di jalan!',
+                'terlambat_menit' => 0,
+                'lembur_menit' => $lembur,
+            ];
         }
 
         throw new AturanBisnisException('Anda sudah menyelesaikan presensi masuk dan pulang hari ini.', 'selesai');
@@ -130,7 +167,8 @@ class PresensiService
     {
         $pengajuan = PengajuanIzin::query()
             ->where('nik', $karyawan->nik)
-            ->where('status_approved', \App\Enums\StatusPengajuan::Disetujui->value)
+            ->where('status_approved', StatusPengajuan::Disetujui->value)
+            ->where('status', '!=', JenisPengajuan::TugasLuar->value) // tugas luar tetap wajib presensi
             ->berimpitDengan($tanggal, $tanggal)
             ->first();
 
@@ -142,14 +180,37 @@ class PresensiService
         }
     }
 
+    /** Tugas luar yang sudah DISETUJUI Direksi dan mencakup tanggal ini (null bila tidak ada). */
+    private function tugasLuarBerlaku(Karyawan $karyawan, string $tanggal): ?PengajuanIzin
+    {
+        return PengajuanIzin::query()
+            ->where('nik', $karyawan->nik)
+            ->where('status_approved', StatusPengajuan::Disetujui->value)
+            ->where('status', JenisPengajuan::TugasLuar->value)
+            ->berimpitDengan($tanggal, $tanggal)
+            ->first();
+    }
+
+    /** Menit lembur = selisih jam pulang sebenarnya dan jam pulang jadwal; 0 bila di bawah batas minimal. */
+    private function menitLembur(string $jamPulangJadwal, string $jamSekarang): int
+    {
+        $menit = intdiv(Waktu::detik($jamSekarang) - Waktu::detik($jamPulangJadwal), 60);
+        $minimal = max(1, (int) Pengaturan::ambil('lembur.minimal_menit'));
+
+        return $menit >= $minimal ? $menit : 0;
+    }
+
     /**
      * Tandai untuk direview HR (BUKAN ditolak): akurasi GPS rendah, atau koordinat
      * persis sama dengan 3 presensi terakhir (indikasi lokasi palsu/tetap).
      */
-    private function mencurigakan(Karyawan $karyawan, string $lokasi, ?float $akurasi): bool
+    private function mencurigakan(Karyawan $karyawan, string $lokasi, ?float $akurasi, bool $cekKoordinatSama = true): bool
     {
         if ($akurasi !== null && $akurasi > (float) Pengaturan::ambil('gps.review_akurasi')) {
             return true;
+        }
+        if (! $cekKoordinatSama) {
+            return false;
         }
 
         $terakhir = Presensi::query()->where('nik', $karyawan->nik)
