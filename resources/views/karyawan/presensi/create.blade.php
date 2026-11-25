@@ -128,7 +128,8 @@
     }
 
     if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(padaPosisi, galatGps, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+        const idPantau = navigator.geolocation.watchPosition(padaPosisi, galatGps, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+        window.addEventListener('pagehide', () => navigator.geolocation.clearWatch(idPantau));
     } else {
         setStatus('salah', 'close-circle-outline', 'Perangkat/browser tidak mendukung GPS.');
     }

@@ -32,6 +32,7 @@ return [
         'kuota_bulanan'      => 3, // jumlah pengajuan izin/sakit per bulan (cuti tidak dihitung)
         'sakit_mundur_hari'  => 7, // sakit boleh diajukan mundur maksimal sekian hari
         'lampiran_maks_kb'   => 2048,
+        'maks_rentang_hari'  => 366, // rentang satu pengajuan; mencegah loop hari yang sangat panjang (mis. salah ketik tahun)
     ],
 
     'lembur' => [

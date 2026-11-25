@@ -35,6 +35,13 @@ class PengajuanService
             throw new AturanBisnisException('Tanggal selesai tidak boleh sebelum tanggal mulai.');
         }
 
+        // Batas rentang: hitungHariKerja() melangkah per hari, jadi rentang yang tidak masuk akal
+        // (mis. salah ketik tahun 2926) ditolak di sini sebelum menghabiskan waktu/memori.
+        $maksRentang = (int) config('presensi.izin.maks_rentang_hari');
+        if ((int) abs($mulai->diffInDays($selesai)) > $maksRentang) {
+            throw new AturanBisnisException("Rentang tanggal terlalu panjang (maksimal {$maksRentang} hari). Periksa kembali tanggal selesai.");
+        }
+
         if ($jenis === JenisPengajuan::Sakit) {
             $mundur = (int) Pengaturan::ambil('izin.sakit_mundur_hari');
             if ($mulai->lt($hariIni->copy()->subDays($mundur))) {

@@ -67,7 +67,10 @@ class RekapService
             ->each(function (PengajuanIzin $p) use (&$dikecualikan, &$tugasLuar, $awal, $akhir) {
                 $hari = $p->tgl_izin->copy()->max($awal->copy())->startOfDay();
                 $batas = $p->tanggalAkhir()->min($akhir->copy());
-                while ($hari->lte($batas)) {
+                // Penjaga: loop ini dulu pernah tak berujung (objek tanggal yang sama dipakai bersama) hingga
+                // memori habis. Batas iterasi menjamin loop selalu berhenti walau terjadi hal serupa.
+                $aman = 0;
+                while ($hari->lte($batas) && $aman++ < 3700) {
                     if ($p->jenis()->membebaskanPresensi()) {
                         $dikecualikan[$p->nik][$hari->toDateString()] ??= $p->jenis();
                     } else {

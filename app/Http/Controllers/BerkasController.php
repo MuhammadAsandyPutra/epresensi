@@ -100,8 +100,9 @@ class BerkasController extends Controller
             $tipe = self::TIPE[strtolower(pathinfo($path, PATHINFO_EXTENSION))] ?? 'application/octet-stream';
 
             // Bersihkan buffer agar tidak ada spasi/warning PHP yang ikut merusak biner gambar.
-            while (! app()->runningUnitTests() && ob_get_level() > 0) {
-                @ob_end_clean();
+            // Berhenti bila sebuah buffer tidak bisa dibuang (ob_end_clean mengembalikan false), agar tidak berputar selamanya.
+            while (! app()->runningUnitTests() && ob_get_level() > 0 && @ob_end_clean()) {
+                // kosong: setiap putaran membuang satu lapis buffer
             }
 
             $respons = response()->file($penuh, [
