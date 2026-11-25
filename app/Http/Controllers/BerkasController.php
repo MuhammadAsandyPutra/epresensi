@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Karyawan;
 use App\Models\PengajuanIzin;
 use App\Models\Presensi;
+use App\Models\PresensiTahan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -30,6 +31,14 @@ class BerkasController extends Controller
         $this->izinkan($presensi->nik);
 
         return $this->kirim($jenis === 'in' ? $presensi->foto_in : $presensi->foto_out, 'uploads/absensi');
+    }
+
+    /** Foto presensi luar kantor yang masih ditahan. */
+    public function tahan(PresensiTahan $tahan, string $jenis): BinaryFileResponse
+    {
+        $this->izinkan($tahan->nik);
+
+        return $this->kirim($jenis === 'in' ? $tahan->foto_in : $tahan->foto_out, 'uploads/absensi');
     }
 
     public function profil(Karyawan $karyawan): BinaryFileResponse

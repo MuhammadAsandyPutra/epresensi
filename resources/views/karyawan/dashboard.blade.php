@@ -32,21 +32,29 @@
         <span class="status-chip chip-{{ $status->warna() }}">{{ $status->label() }}</span>
     </div>
 
-    @if ($presensi)
+    @php
+        $tahan = $hariIni['tahan'];                       // presensi luar kantor yang sedang ditahan (bila ada)
+        $jamMasuk = $presensi?->jam_in ?? $tahan?->jam_in;
+        $jamPulang = $presensi?->jam_out ?? $tahan?->jam_out;
+    @endphp
+    @if ($presensi || $tahan)
         <div class="d-flex mt-3 text-center">
-            <div class="flex-fill"><div class="jam">Masuk</div><div class="waktu">{{ \App\Support\Waktu::hm($presensi->jam_in) }}</div></div>
-            <div class="flex-fill"><div class="jam">Pulang</div><div class="waktu">{{ \App\Support\Waktu::hm($presensi->jam_out) }}</div></div>
+            <div class="flex-fill"><div class="jam">Masuk</div><div class="waktu">{{ \App\Support\Waktu::hm($jamMasuk) }}</div>@if (! $presensi?->jam_in && $tahan?->jam_in)<div style="font-size:11px;color:#b3660d">ditahan</div>@endif</div>
+            <div class="flex-fill"><div class="jam">Pulang</div><div class="waktu">{{ \App\Support\Waktu::hm($jamPulang) }}</div>@if (! $presensi?->jam_out && $tahan?->jam_out)<div style="font-size:11px;color:#b3660d">ditahan</div>@endif</div>
         </div>
-        @if ($hariIni['terlambat_menit'] > 0)
+        @if ($tahan)
+            <div class="text-center mt-2" style="font-size:12px;background:#fff6e5;color:#8a5a00;border-radius:10px;padding:8px 10px">Presensi dari luar kantor ditahan, menunggu review Direksi. Setelah disetujui, jam presensi Anda tercatat apa adanya.</div>
+        @endif
+        @if ($presensi && $hariIni['terlambat_menit'] > 0)
             <div class="text-center mt-1" style="font-size:12px;color:#b3660d">Terlambat {{ $hariIni['terlambat_menit'] }} menit</div>
         @endif
-        @if ($presensi->adaPulangCepat())
+        @if ($presensi?->adaPulangCepat())
             <div class="text-center mt-2"><span class="status-chip chip-{{ $presensi->pulang_cepat_status->warna() }}">Pulang lebih awal · {{ $presensi->pulang_cepat_status->label() }}</span></div>
         @endif
-        @if ($presensi->adaLembur())
+        @if ($presensi?->adaLembur())
             <div class="text-center mt-2"><span class="status-chip chip-{{ $presensi->lembur_status->warna() }}">Lembur {{ $presensi->lembur_menit }} mnt · {{ $presensi->lembur_status->label() }}</span></div>
         @endif
-        @if (! $presensi->jam_out)
+        @if (! $jamPulang)
             <div class="garis"></div>
             <a href="{{ route('presensi.create') }}" class="tombol-hijau merah"><ion-icon name="camera-outline"></ion-icon> Presensi Pulang</a>
         @endif
@@ -62,7 +70,7 @@
     @endif
 </div>
 
-@if ($hariIni['tugas_luar'] && ! ($presensi && $presensi->jam_out))
+@if ($hariIni['tugas_luar'] && ! $jamPulang)
     <div class="kartu" style="margin-top:12px;background:#f4eefb">
         <div style="font-weight:600;color:#6b3fa0"><ion-icon name="navigate-outline"></ion-icon> Tugas luar hari ini</div>
         <div style="font-size:13px;margin-top:4px">{{ $hariIni['keterangan'] ?? '' }}. Presensi dilakukan dari lokasi tugas (radius kantor tidak berlaku).</div>

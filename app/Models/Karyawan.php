@@ -22,7 +22,7 @@ class Karyawan extends Authenticatable
 
     protected $fillable = [
         'nik', 'nama_lengkap', 'jabatan', 'no_hp', 'foto', 'kode_dept', 'kode_cabang',
-        'password', 'aktif', 'jatah_cuti',
+        'password', 'aktif', 'jatah_cuti', 'boleh_presensi_luar',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -32,6 +32,7 @@ class Karyawan extends Authenticatable
         return [
             'password' => 'hashed',
             'aktif' => 'boolean',
+            'boleh_presensi_luar' => 'boolean',
             'jatah_cuti' => 'integer',
         ];
     }

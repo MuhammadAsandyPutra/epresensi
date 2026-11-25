@@ -26,6 +26,7 @@ class KaryawanRequest extends FormRequest
             'kode_cabang' => ['required', Rule::exists('cabang', 'kode_cabang')],
             'jatah_cuti' => ['nullable', 'integer', 'between:0,60'],
             'aktif' => ['nullable', 'boolean'],
+            'boleh_presensi_luar' => ['nullable', 'boolean'],
             'password' => [$edit ? 'nullable' : 'required', 'string', 'min:8'],
             'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
         ];

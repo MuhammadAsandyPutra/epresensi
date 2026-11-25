@@ -103,6 +103,12 @@ bulanan; cuti dibatasi saldo tahunan (menunggu + disetujui ikut dihitung); sakit
 **Tugas luar:** diajukan karyawan (tujuan/lokasi wajib), tidak memakai kuota izin maupun saldo cuti. Setelah disetujui Direksi, karyawan **tetap presensi**
 (selfie + GPS + jam tetap divalidasi) tetapi radius kantor tidak dicek pada tanggal tersebut. Presensinya bertanda *tugas luar* di monitoring dan laporan.
 
+**Presensi luar kantor (mis. menagih angsuran ke pasar/toko nasabah):** hanya untuk karyawan yang ditandai HR (**Boleh presensi dari luar kantor** di form karyawan);
+karyawan lain tetap ditolak di luar radius. Bagi yang ditandai, presensi di luar radius **tidak ditolak melainkan ditahan** (tabel `presensi_tahan`) dengan tujuan wajib diisi, dan
+**belum dihitung** di rekap/KPI. **Direksi** menyetujui atau menolak di menu **Presensi Luar Kantor**; bila disetujui, presensi tercatat dengan **jam asli** saat karyawan presensi
+(terlambat/pulang cepat dihitung dari jam itu); bila ditolak, tidak pernah tercatat. **HR** menandai diketahui. Masuk dan pulang di hari yang sama diputuskan bersama
+bila salah satunya ditahan; lembur/pulang awal di dalamnya ikut disetujui. Yang sudah disetujui diubah lewat Koreksi Presensi.
+
 **Pulang lebih awal (keperluan mendadak):** presensi pulang sebelum `jam_pulang` tetap diizinkan, tetapi karyawan wajib mengisi alasan.
 Pulangnya langsung tercatat (jam sebenarnya) dengan status *Menunggu*; Direksi memutuskan **sesudahnya**, HR menandai diketahui (menu **Pulang Lebih Awal**).
 Yang disetujui tidak dihitung sebagai pulang cepat di KPI; yang ditolak/belum diputuskan tetap dihitung.

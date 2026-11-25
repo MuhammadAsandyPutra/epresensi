@@ -43,6 +43,7 @@ Route::middleware('auth:karyawan')->group(function () {
 // Berkas privat (foto presensi, foto profil, lampiran): hanya pemilik atau HR/Admin.
 Route::middleware('auth:karyawan,user')->prefix('berkas')->name('berkas.')->group(function () {
     Route::get('/presensi/{presensi}/{jenis}', [BerkasController::class, 'presensi'])->whereIn('jenis', ['in', 'out'])->name('presensi');
+    Route::get('/tahan/{tahan}/{jenis}', [BerkasController::class, 'tahan'])->whereIn('jenis', ['in', 'out'])->name('tahan');
     Route::get('/profil/{karyawan}', [BerkasController::class, 'profil'])->name('profil');
     Route::get('/lampiran/{pengajuan}', [BerkasController::class, 'lampiran'])->name('lampiran');
 });
@@ -64,6 +65,7 @@ Route::prefix('panel')->name('panel.')->group(function () {
         Route::get('/pengajuan', [Admin\PengajuanController::class, 'index'])->name('pengajuan.index');
         Route::get('/lembur', [Admin\LemburController::class, 'index'])->name('lembur.index');
         Route::get('/pulang-cepat', [Admin\PulangCepatController::class, 'index'])->name('pulang-cepat.index');
+        Route::get('/presensi-luar', [Admin\PresensiLuarController::class, 'index'])->name('presensi-luar.index');
 
         // Laporan
         Route::get('/laporan', [Admin\LaporanController::class, 'index'])->name('laporan');
@@ -88,6 +90,8 @@ Route::prefix('panel')->name('panel.')->group(function () {
         Route::post('/lembur/{presensi}/kembalikan', [Admin\LemburController::class, 'kembalikan'])->name('lembur.kembalikan');
         Route::post('/pulang-cepat/{presensi}/putuskan', [Admin\PulangCepatController::class, 'putuskan'])->name('pulang-cepat.putuskan');
         Route::post('/pulang-cepat/{presensi}/kembalikan', [Admin\PulangCepatController::class, 'kembalikan'])->name('pulang-cepat.kembalikan');
+        Route::post('/presensi-luar/{tahan}/putuskan', [Admin\PresensiLuarController::class, 'putuskan'])->name('presensi-luar.putuskan');
+        Route::post('/presensi-luar/{tahan}/kembalikan', [Admin\PresensiLuarController::class, 'kembalikan'])->name('presensi-luar.kembalikan');
     });
 
     // Data master & pengaturan, plus penanda "diketahui": HR dan Admin.
@@ -95,6 +99,7 @@ Route::prefix('panel')->name('panel.')->group(function () {
         Route::post('/pengajuan/{pengajuan}/ketahui', [Admin\PengajuanController::class, 'ketahui'])->name('pengajuan.ketahui');
         Route::post('/lembur/{presensi}/ketahui', [Admin\LemburController::class, 'ketahui'])->name('lembur.ketahui');
         Route::post('/pulang-cepat/{presensi}/ketahui', [Admin\PulangCepatController::class, 'ketahui'])->name('pulang-cepat.ketahui');
+        Route::post('/presensi-luar/{tahan}/ketahui', [Admin\PresensiLuarController::class, 'ketahui'])->name('presensi-luar.ketahui');
 
         // Koreksi presensi (karyawan tidak bisa presensi sama sekali / lupa pulang)
         Route::get('/koreksi-presensi', [Admin\KoreksiPresensiController::class, 'index'])->name('koreksi.index');

@@ -38,6 +38,11 @@
                 <input type="hidden" name="aktif" value="0">
                 <label class="form-check"><input type="checkbox" name="aktif" value="1" class="form-check-input" @checked(old('aktif', $karyawan->aktif))><span class="form-check-label">Karyawan aktif (dapat login &amp; presensi)</span></label>
             </div>
+            <div class="col-12">
+                <input type="hidden" name="boleh_presensi_luar" value="0">
+                <label class="form-check"><input type="checkbox" name="boleh_presensi_luar" value="1" class="form-check-input" @checked(old('boleh_presensi_luar', $karyawan->boleh_presensi_luar))><span class="form-check-label">Boleh presensi dari luar kantor (mis. menagih angsuran)</span></label>
+                <div class="form-hint">Presensi di luar radius kantor tidak ditolak, tetapi <strong>ditahan</strong> sampai Direksi menyetujui. Karyawan yang tidak ditandai tetap ditolak di luar radius.</div>
+            </div>
         </div>
     </div>
     <div class="card-footer text-end"><a href="{{ route('panel.karyawan.index') }}" class="btn btn-link">Batal</a><button class="btn btn-primary">Simpan</button></div>

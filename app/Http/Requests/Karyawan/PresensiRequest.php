@@ -19,6 +19,7 @@ class PresensiRequest extends FormRequest
             'foto' => ['required', 'string'],               // data URL base64
             'keterangan_lembur' => ['nullable', 'string', 'max:500'], // wajib bila pulang melewati batas lembur (dicek di service)
             'alasan_pulang_cepat' => ['nullable', 'string', 'max:500'], // wajib bila pulang sebelum jam pulang (dicek di service)
+            'alasan_luar_kantor' => ['nullable', 'string', 'max:500'],  // tujuan, wajib bila presensi di luar radius (dicek di service)
         ];
     }
 

@@ -23,6 +23,8 @@
                     @if ($badgeLembur > 0)<span class="badge bg-red ms-auto" title="{{ $user->isDireksi() ? 'Menunggu keputusan Anda' : 'Belum diketahui' }}">{{ $badgeLembur }}</span>@endif</a></li>
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.pulang-cepat.*') }}" href="{{ route('panel.pulang-cepat.index') }}"><span class="nav-link-icon"><i class="ti ti-door-exit"></i></span><span class="nav-link-title">Pulang Lebih Awal</span>
                     @if ($badgePulangCepat > 0)<span class="badge bg-red ms-auto" title="{{ $user->isDireksi() ? 'Menunggu keputusan Anda' : 'Belum diketahui' }}">{{ $badgePulangCepat }}</span>@endif</a></li>
+                <li class="nav-item"><a class="nav-link {{ $menu('panel.presensi-luar.*') }}" href="{{ route('panel.presensi-luar.index') }}"><span class="nav-link-icon"><i class="ti ti-map-pin-pause"></i></span><span class="nav-link-title">Presensi Luar Kantor</span>
+                    @if ($badgeLuar > 0)<span class="badge bg-red ms-auto" title="{{ $user->isDireksi() ? 'Menunggu keputusan Anda' : 'Belum diketahui' }}">{{ $badgeLuar }}</span>@endif</a></li>
                 @if ($user->penerimaInfo())
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.koreksi.*') }}" href="{{ route('panel.koreksi.index') }}"><span class="nav-link-icon"><i class="ti ti-edit-circle"></i></span><span class="nav-link-title">Koreksi Presensi</span></a></li>
                 @endif

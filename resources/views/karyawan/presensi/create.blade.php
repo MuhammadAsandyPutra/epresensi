@@ -1,7 +1,7 @@
 @extends('layouts.karyawan')
 
 @section('judul', 'Presensi')
-@section('header', $presensi ? 'Presensi Pulang' : 'Presensi Masuk')
+@section('header', $sesi['sudahMasuk'] ? 'Presensi Pulang' : 'Presensi Masuk')
 
 @push('head')
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -10,21 +10,25 @@
 @section('content')
 @php
     $kantor = $cabang?->koordinat();
-    $selesai = $presensi && $presensi->jam_out;
-    // Saat tugas luar disetujui, lokasi kantor tidak wajib: presensi dilakukan dari lokasi tugas.
-    $bisa = ($kantor || $tugasLuar) && $jamKerja && ! $selesai;
+    $selesai = $sesi['selesai'];
+    $bolehLuar = (bool) $karyawan->boleh_presensi_luar;
+    // Tugas luar disetujui / boleh presensi luar kantor: lokasi kantor tidak wajib.
+    $bisa = ($kantor || $tugasLuar || $bolehLuar) && $jamKerja && ! $selesai;
 @endphp
 
 <div class="px-3 pt-2">
     @if ($tugasLuar)
         <div class="alert" style="background:#f4eefb;color:#6b3fa0"><strong>Tugas luar disetujui:</strong> {{ $tugasLuar->lokasi_tugas }}. Presensi dari lokasi tugas; radius kantor tidak berlaku, selfie dan GPS tetap dicatat.</div>
     @endif
-    @if (! $tugasLuar && (! $cabang || ! $kantor))
+    @if ($bolehLuar && ! $tugasLuar && ! $selesai)
+        <div class="alert" style="background:#fff6e5;color:#8a5a00">Anda boleh presensi dari luar kantor. Di luar radius kantor, presensi <strong>ditahan</strong> sampai disetujui Direksi dan Anda diminta mengisi tujuan.</div>
+    @endif
+    @if (! $tugasLuar && ! $bolehLuar && (! $cabang || ! $kantor))
         <div class="alert alert-danger">Lokasi kantor Anda belum diatur. Hubungi HR.</div>
     @elseif (! $jamKerja)
         <div class="alert alert-warning">Hari ini bukan hari kerja Anda (libur / di luar jadwal).</div>
     @elseif ($selesai)
-        <div class="alert alert-success">Presensi hari ini sudah lengkap: masuk {{ \App\Support\Waktu::hm($presensi->jam_in) }}, pulang {{ \App\Support\Waktu::hm($presensi->jam_out) }}.</div>
+        <div class="alert alert-success">Presensi hari ini sudah lengkap: masuk {{ \App\Support\Waktu::hm($sesi['jamIn']) }}, pulang {{ \App\Support\Waktu::hm($sesi['jamOut']) }}.@if ($sesi['tahan']) Presensi dari luar kantor <strong>ditahan</strong>, menunggu review Direksi.@endif</div>
     @endif
 
     @if ($bisa)
@@ -44,7 +48,7 @@
 
         <button id="tombol" type="button" class="btn btn-primary btn-block btn-lg mt-3" disabled>
             <ion-icon name="camera-outline"></ion-icon>
-            <span id="teksTombol">{{ $presensi ? 'Presensi Pulang' : 'Presensi Masuk' }}</span>
+            <span id="teksTombol">{{ $sesi['sudahMasuk'] ? 'Presensi Pulang' : 'Presensi Masuk' }}</span>
         </button>
         <p class="text-center text-muted mt-2" style="font-size:12px">Foto selfie diambil langsung dari kamera. Pastikan wajah terlihat jelas.</p>
     @endif
@@ -58,6 +62,7 @@
 (function () {
     const KANTOR = @json($kantor ? ['lat' => $kantor[0], 'lng' => $kantor[1], 'radius' => (int) $cabang->radius_cabang] : null);
     const TUGAS_LUAR = @json((bool) $tugasLuar);
+    const BOLEH_LUAR = @json($bolehLuar);   // di luar radius = presensi ditahan, bukan ditolak
     const AKURASI_MAKS = {{ (int) $akurasiMaks }};
     const URL_SIMPAN = @json(route('presensi.store'));
     const URL_BERANDA = @json(route('dashboard'));
@@ -99,7 +104,8 @@
     function padaPosisi(p) {
         const d = KANTOR ? jarak(p.coords.latitude, p.coords.longitude, KANTOR.lat, KANTOR.lng) : null;
         // Tugas luar: radius kantor dilewati (server tetap memvalidasi akurasi, jam, dan foto).
-        posisi = { lat: p.coords.latitude, lng: p.coords.longitude, akurasi: p.coords.accuracy, dalam: TUGAS_LUAR || (d !== null && d <= KANTOR.radius), akurat: p.coords.accuracy <= AKURASI_MAKS };
+        const diLuar = !TUGAS_LUAR && (d === null || d > KANTOR.radius);
+        posisi = { lat: p.coords.latitude, lng: p.coords.longitude, akurasi: p.coords.accuracy, dalam: TUGAS_LUAR || BOLEH_LUAR || !diLuar, akurat: p.coords.accuracy <= AKURASI_MAKS };
 
         if (!penanda) { penanda = L.marker([posisi.lat, posisi.lng]).addTo(peta); } else { penanda.setLatLng([posisi.lat, posisi.lng]); }
         if (KANTOR && !TUGAS_LUAR) {
@@ -110,6 +116,7 @@
 
         if (!posisi.akurat) setStatus('cari', 'warning-outline', 'Akurasi GPS ' + Math.round(posisi.akurasi) + ' m (maks ' + AKURASI_MAKS + ' m). Pindah ke area terbuka…');
         else if (TUGAS_LUAR) setStatus('ok', 'navigate-outline', 'Mode tugas luar: lokasi Anda terbaca (akurasi ' + Math.round(posisi.akurasi) + ' m).');
+        else if (BOLEH_LUAR && diLuar) setStatus('cari', 'alert-circle-outline', 'Anda di luar area kantor' + (d !== null ? ' (' + d + ' m)' : '') + '. Presensi akan DITAHAN sampai disetujui Direksi.');
         else if (!posisi.dalam) setStatus('salah', 'close-circle-outline', 'Anda ' + d + ' m dari kantor. Radius maksimal ' + KANTOR.radius + ' m.');
         else setStatus('ok', 'checkmark-circle-outline', 'Di dalam area kantor (' + d + ' m, akurasi ' + Math.round(posisi.akurasi) + ' m).');
         perbarui();
@@ -143,8 +150,16 @@
         return kanvas.toDataURL('image/jpeg', 0.8);
     }
 
-    const TEKS_TOMBOL = @json($presensi ? 'Presensi Pulang' : 'Presensi Masuk');
+    const TEKS_TOMBOL = @json($sesi['sudahMasuk'] ? 'Presensi Pulang' : 'Presensi Masuk');
     let fotoTerakhir = null;
+    let jawaban = {}; // isian yang diminta server: keterangan_lembur / alasan_pulang_cepat / alasan_luar_kantor
+
+    // Pertanyaan yang dapat diajukan server sebelum presensi diterima (kode galat -> isian).
+    const MINTA = {
+        lembur: { kolom: 'keterangan_lembur', judul: 'Keterangan lembur', isi: 'Tulis pekerjaan yang dilakukan selama lembur' },
+        pulang_cepat: { kolom: 'alasan_pulang_cepat', judul: 'Alasan pulang lebih awal', isi: 'Mis. anak sakit, keperluan keluarga mendesak' },
+        luar_kantor: { kolom: 'alasan_luar_kantor', judul: 'Tujuan di luar kantor', isi: 'Mis. menagih angsuran nasabah di Pasar X' },
+    };
 
     function selesaiKirim() {
         mengirim = false;
@@ -152,40 +167,40 @@
         perbarui();
     }
 
-    async function kirim(keterangan, kolom) {
+    async function kirim() {
         mengirim = true; perbarui();
         document.getElementById('teksTombol').textContent = 'Mengirim…';
 
         try {
-            const muatan = { lokasi: posisi.lat + ',' + posisi.lng, akurasi: posisi.akurasi, foto: fotoTerakhir };
-            if (keterangan) muatan[kolom] = keterangan; // keterangan_lembur atau alasan_pulang_cepat
-
             const res = await fetch(URL_SIMPAN, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
-                body: JSON.stringify(muatan),
+                body: JSON.stringify({ lokasi: posisi.lat + ',' + posisi.lng, akurasi: posisi.akurasi, foto: fotoTerakhir, ...jawaban }),
             });
             const json = await res.json().catch(() => ({}));
 
             if (res.ok && json.ok) {
-                await Swal.fire({ icon: 'success', title: json.jenis === 'masuk' ? 'Presensi Masuk Berhasil' : 'Presensi Pulang Berhasil', text: json.pesan, timer: 2800, showConfirmButton: false });
+                await Swal.fire({
+                    icon: json.ditahan ? 'info' : 'success',
+                    title: json.ditahan ? 'Presensi Ditahan' : (json.jenis === 'masuk' ? 'Presensi Masuk Berhasil' : 'Presensi Pulang Berhasil'),
+                    text: json.pesan,
+                    timer: json.ditahan ? undefined : 2800, showConfirmButton: !!json.ditahan, confirmButtonText: 'Mengerti',
+                });
                 location.href = URL_BERANDA;
                 return;
             }
 
-            // Pulang melewati jam kerja (lembur) atau sebelum jam pulang: minta keterangan, lalu kirim ulang foto yang sama.
-            if (json.kode === 'lembur' || json.kode === 'pulang_cepat') {
+            // Server meminta keterangan (lembur / pulang awal / tujuan luar kantor): tanyakan, lalu kirim ulang foto yang sama.
+            if (MINTA[json.kode]) {
                 selesaiKirim();
-                const lembur = json.kode === 'lembur';
+                const m = MINTA[json.kode];
                 const hasil = await Swal.fire({
-                    icon: 'question', title: lembur ? 'Keterangan lembur' : 'Alasan pulang lebih awal', text: json.pesan,
-                    input: 'textarea',
-                    inputPlaceholder: lembur ? 'Tulis pekerjaan yang dilakukan selama lembur' : 'Mis. anak sakit, keperluan keluarga mendesak',
-                    inputAttributes: { maxlength: 500 }, inputValue: keterangan || '',
-                    showCancelButton: true, confirmButtonText: 'Kirim presensi pulang', cancelButtonText: 'Batal',
+                    icon: 'question', title: m.judul, text: json.pesan,
+                    input: 'textarea', inputPlaceholder: m.isi, inputAttributes: { maxlength: 500 }, inputValue: jawaban[m.kolom] || '',
+                    showCancelButton: true, confirmButtonText: 'Lanjutkan', cancelButtonText: 'Batal',
                     inputValidator: (v) => (!v || v.trim().length < 5) ? 'Minimal 5 karakter.' : null,
                 });
-                if (hasil.isConfirmed) { return kirim(hasil.value.trim(), lembur ? 'keterangan_lembur' : 'alasan_pulang_cepat'); }
+                if (hasil.isConfirmed) { jawaban[m.kolom] = hasil.value.trim(); return kirim(); }
                 return;
             }
 
@@ -199,7 +214,8 @@
     tombol.addEventListener('click', () => {
         if (!posisi || mengirim) return;
         fotoTerakhir = ambilFoto();
-        kirim(null, null);
+        jawaban = {};
+        kirim();
     });
 })();
 </script>

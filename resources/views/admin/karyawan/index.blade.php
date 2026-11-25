@@ -36,7 +36,7 @@
                     <td>{{ $k->jabatan }}</td>
                     <td>{{ $k->departemen?->nama_dept }}</td>
                     <td>{{ $k->cabang?->nama_cabang }}</td>
-                    <td><span class="badge bg-{{ $k->aktif ? 'green' : 'secondary' }}-lt">{{ $k->aktif ? 'Aktif' : 'Nonaktif' }}</span></td>
+                    <td><span class="badge bg-{{ $k->aktif ? 'green' : 'secondary' }}-lt">{{ $k->aktif ? 'Aktif' : 'Nonaktif' }}</span>@if ($k->boleh_presensi_luar) <span class="badge bg-purple-lt" title="Boleh presensi dari luar kantor (ditahan sampai disetujui Direksi)">Luar kantor</span>@endif</td>
                     <td class="text-end text-nowrap">
                         <a href="{{ route('panel.karyawan.jadwal', $k) }}" class="btn btn-sm btn-outline-secondary" title="Jadwal kerja"><i class="ti ti-calendar-time"></i></a>
                         <a href="{{ route('panel.kpi.show', $k) }}" class="btn btn-sm btn-outline-secondary" title="KPI bulan ini"><i class="ti ti-chart-bar"></i></a>

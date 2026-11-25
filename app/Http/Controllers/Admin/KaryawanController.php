@@ -49,6 +49,7 @@ class KaryawanController extends Controller
     {
         $data = $request->safe()->except('foto');
         $data['aktif'] = $request->boolean('aktif', true);
+        $data['boleh_presensi_luar'] = $request->boolean('boleh_presensi_luar');
         $data['jatah_cuti'] = $request->input('jatah_cuti') ?: config('presensi.cuti.jatah_tahunan');
 
         $karyawan = Karyawan::query()->create($data);
@@ -67,6 +68,7 @@ class KaryawanController extends Controller
     {
         $data = $request->safe()->except(['foto', 'password']);
         $data['aktif'] = $request->boolean('aktif');
+        $data['boleh_presensi_luar'] = $request->boolean('boleh_presensi_luar');
         $data['jatah_cuti'] = $request->input('jatah_cuti') ?: config('presensi.cuti.jatah_tahunan');
         if ($request->filled('password')) {
             $data['password'] = $request->input('password');

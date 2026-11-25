@@ -19,15 +19,17 @@ use Illuminate\View\View;
 class PresensiController extends Controller
 {
     /** Halaman kamera + peta. Semua keputusan tetap divalidasi ulang di server saat store(). */
-    public function create(JadwalService $jadwal): View
+    public function create(JadwalService $jadwal, PresensiService $service): View
     {
         $karyawan = Auth::guard('karyawan')->user()->load('cabang');
+        $sesi = $service->sesiHariIni($karyawan, now()->toDateString());
 
         return view('karyawan.presensi.create', [
             'karyawan' => $karyawan,
             'cabang' => $karyawan->cabang,
             'jamKerja' => $jadwal->untukTanggal($karyawan, now()),
-            'presensi' => Presensi::query()->where('nik', $karyawan->nik)->where('tanggal_presensi', now()->toDateString())->first(),
+            'presensi' => $sesi['presensi'],
+            'sesi' => $sesi, // termasuk presensi luar kantor yang sedang ditahan
             'akurasiMaks' => (int) Pengaturan::ambil('gps.akurasi_maks'),
             // Tugas luar yang sudah disetujui hari ini: radius kantor tidak dipakai.
             'tugasLuar' => PengajuanIzin::query()->where('nik', $karyawan->nik)
@@ -48,6 +50,7 @@ class PresensiController extends Controller
                 $request->ip(),
                 $request->filled('keterangan_lembur') ? $request->string('keterangan_lembur')->toString() : null,
                 $request->filled('alasan_pulang_cepat') ? $request->string('alasan_pulang_cepat')->toString() : null,
+                $request->filled('alasan_luar_kantor') ? $request->string('alasan_luar_kantor')->toString() : null,
             );
         } catch (AturanBisnisException $e) {
             return response()->json(['ok' => false, 'pesan' => $e->getMessage(), 'kode' => $e->kode], 422);

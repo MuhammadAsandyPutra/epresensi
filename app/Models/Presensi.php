@@ -23,6 +23,7 @@ class Presensi extends Model
         'pulang_cepat_menit', 'alasan_pulang_cepat', 'pulang_cepat_status', 'pulang_cepat_catatan',
         'pulang_cepat_diputuskan_oleh', 'pulang_cepat_diputuskan_pada', 'pulang_cepat_diketahui_oleh', 'pulang_cepat_diketahui_pada',
         'koreksi_oleh', 'koreksi_pada', 'koreksi_alasan', 'koreksi_jam_in_asli', 'koreksi_jam_out_asli',
+        'luar_kantor',
     ];
 
     protected function casts(): array
@@ -39,6 +40,7 @@ class Presensi extends Model
             'pulang_cepat_diputuskan_pada' => 'datetime',
             'pulang_cepat_diketahui_pada' => 'datetime',
             'koreksi_pada' => 'datetime',
+            'luar_kantor' => 'boolean',
         ];
     }
 

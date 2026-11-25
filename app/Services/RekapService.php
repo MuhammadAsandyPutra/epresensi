@@ -10,6 +10,7 @@ use App\Models\JadwalKaryawan;
 use App\Models\JamKerja;
 use App\Models\Karyawan;
 use App\Models\PengajuanIzin;
+use App\Models\PresensiTahan;
 use App\Models\Presensi;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -80,7 +81,15 @@ class RekapService
             ->mapWithKeys(fn ($h) => [$h->tanggal->toDateString() => $h->keterangan])
             ->all();
 
-        return compact('jamKerja', 'jadwal', 'presensi', 'dikecualikan', 'tugasLuar', 'libur');
+        // Presensi luar kantor yang masih DITAHAN: belum dihitung, hanya diberi keterangan di laporan.
+        $tahan = [];
+        PresensiTahan::query()->menunggu()->whereIn('nik', $niks)
+            ->whereBetween('tanggal_presensi', [$mulai, $selesai])->get()
+            ->each(function (PresensiTahan $t) use (&$tahan) {
+                $tahan[$t->nik][$t->tanggal_presensi->toDateString()] = $t;
+            });
+
+        return compact('jamKerja', 'jadwal', 'presensi', 'dikecualikan', 'tugasLuar', 'tahan', 'libur');
     }
 
     /**
@@ -111,6 +120,8 @@ class RekapService
 
         $lokasiTugas = $ctx['tugasLuar'][$nik][$tglStr] ?? null;
 
+        $tahan = $ctx['tahan'][$nik][$tglStr] ?? null;
+
         $baris = [
             'tanggal' => $tgl,
             'hari' => $namaHari,
@@ -121,7 +132,10 @@ class RekapService
             'terlambat_menit' => 0,
             'pulang_cepat' => false,
             'tugas_luar' => $lokasiTugas !== null || (bool) $presensi?->tugas_luar,
-            'keterangan' => $lokasiTugas !== null ? 'Tugas luar: '.$lokasiTugas : null,
+            'tahan' => $tahan,
+            'keterangan' => $tahan !== null
+                ? 'Presensi luar kantor ditahan, menunggu review Direksi: '.$tahan->alasan
+                : ($lokasiTugas !== null ? 'Tugas luar: '.$lokasiTugas : null),
         ];
 
         if (isset($ctx['libur'][$tglStr])) {
