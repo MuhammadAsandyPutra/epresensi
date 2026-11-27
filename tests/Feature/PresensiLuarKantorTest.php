@@ -24,7 +24,7 @@ class PresensiLuarKantorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Storage::fake('local');
+        Storage::fake(config('presensi.foto.disk'));
         Carbon::setTestNow('2026-11-16 08:30:00'); // Senin
         $this->siapkanMaster();
     }
@@ -83,7 +83,7 @@ class PresensiLuarKantorTest extends TestCase
         $this->kirim(self::DI_LUAR, ['alasan_luar_kantor' => 'x'])->assertStatus(422)->assertJson(['kode' => 'luar_kantor']);
         $this->assertDatabaseCount('presensi_tahan', 0);
         $this->assertDatabaseCount('presensi', 0);
-        $this->assertSame([], Storage::disk('local')->allFiles()); // tidak ada foto yang tertinggal
+        $this->assertSame([], Storage::disk(config('presensi.foto.disk'))->allFiles()); // tidak ada foto yang tertinggal
     }
 
     public function test_presensi_luar_ditahan_belum_tercatat_di_presensi(): void

@@ -42,7 +42,6 @@
     <div class="card mb-3">
         <div class="card-header"><h3 class="card-title">Kebijakan izin, cuti, dan GPS</h3></div>
         <div class="card-body"><div class="row g-3">
-            {!! $f('izin_kuota_bulanan', 'Kuota izin/sakit per bulan (kali)') !!}
             {!! $f('izin_sakit_mundur_hari', 'Sakit boleh diajukan mundur (hari)') !!}
             {!! $f('cuti_jatah_tahunan', 'Jatah cuti default (hari/tahun)', 'Dipakai bila jatah karyawan kosong') !!}
             {!! $f('gps_akurasi_maks', 'Akurasi GPS maksimal (meter)', 'Lebih buruk dari ini → presensi ditolak') !!}

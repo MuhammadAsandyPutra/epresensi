@@ -17,10 +17,20 @@ use Illuminate\Support\Carbon;
 /** Aturan pengajuan izin, sakit, dan cuti beserta alur persetujuannya. */
 class PengajuanService
 {
+    /** Keterangan minimal (karakter) agar izin/sakit dianggap berdokumen, selain lampiran surat. */
+    private const KETERANGAN_MIN = 5;
+
+    /** Berapa tahun ke belakang luapan (pinjaman) cuti dihitung; sekaligus pagar agar perhitungan tidak berulang tanpa batas. */
+    private const TAHUN_MUNDUR = 5;
+
     public function __construct(private JadwalService $jadwal) {}
 
     /**
-     * @param  array{jenis: int|string, tgl_izin: string, tgl_selesai?: string|null, keterangan: string, lokasi_tugas?: string|null}  $data
+     * Aturan saldo: izin/sakit TANPA kuota bulanan. Izin/sakit dengan keterangan DAN surat (lampiran) tidak memotong
+     * cuti; selain itu memotong jatah cuti tahunan, sama seperti cuti. Bila sisa tahun ini tidak cukup, kekurangannya
+     * dipinjam dari jatah tahun berikutnya (paling banyak sebesar sisa jatah tahun itu). Tugas luar tidak memotong.
+     *
+     * @param  array{jenis: int|string, tgl_izin: string, tgl_selesai?: string|null, keterangan?: string|null, lokasi_tugas?: string|null}  $data
      *
      * @throws AturanBisnisException
      */
@@ -62,19 +72,14 @@ class PengajuanService
             throw new AturanBisnisException('Sudah ada pengajuan lain pada tanggal tersebut.');
         }
 
-        if ($jenis->memakaiKuotaBulanan()) {
-            $kuota = (int) Pengaturan::ambil('izin.kuota_bulanan');
-            if ($this->jumlahPengajuanBulan($karyawan, $mulai) >= $kuota) {
-                throw new AturanBisnisException("Kuota izin/sakit bulan tersebut sudah habis (maksimal {$kuota} kali).");
-            }
-        } elseif ($jenis->memakaiSaldoCuti()) {
+        $keterangan = trim((string) ($data['keterangan'] ?? ''));
+        $potongCuti = $this->memotongCuti($jenis, $keterangan, $lampiran);
+        $pinjam = 0;
+        if ($potongCuti) {
             if ($mulai->year !== $selesai->year) {
-                throw new AturanBisnisException('Cuti lintas tahun harap diajukan terpisah per tahun.');
+                throw new AturanBisnisException('Pengajuan yang memotong cuti tidak boleh lintas tahun; ajukan terpisah per tahun.');
             }
-            $sisa = $this->sisaCuti($karyawan, $mulai->year);
-            if ($hari > $sisa) {
-                throw new AturanBisnisException("Sisa cuti Anda {$sisa} hari, pengajuan ini {$hari} hari kerja.");
-            }
+            $pinjam = $this->periksaSaldo($karyawan, $mulai->year, $hari, $jenis);
         }
 
         $lokasiTugas = null;
@@ -90,10 +95,12 @@ class PengajuanService
             'tgl_izin' => $mulai->toDateString(),
             'tgl_selesai' => $selesai->toDateString(),
             'status' => $jenis->value,
-            'keterangan' => $data['keterangan'],
+            'keterangan' => $keterangan !== '' ? $keterangan : null,
             'status_approved' => StatusPengajuan::Menunggu->value,
             'jumlah_hari' => $hari,
             'lokasi_tugas' => $lokasiTugas !== null ? mb_substr($lokasiTugas, 0, 150) : null,
+            'potong_cuti' => $potongCuti,
+            'hari_pinjam' => $pinjam,
             'lampiran' => $lampiran?->store('lampiran/'.$mulai->year, config('presensi.foto.disk')),
         ]);
     }
@@ -116,26 +123,90 @@ class PengajuanService
         return $jumlah;
     }
 
-    public function jumlahPengajuanBulan(Karyawan $karyawan, CarbonInterface $acuan): int
+    /**
+     * Apakah pengajuan ini memotong jatah cuti tahunan? Cuti: ya. Tugas luar: tidak. Izin/sakit: bebas potong
+     * HANYA bila ada keterangan memadai DAN surat/lampiran; selain itu memotong.
+     */
+    private function memotongCuti(JenisPengajuan $jenis, string $keterangan, ?UploadedFile $lampiran): bool
     {
-        return PengajuanIzin::query()->where('nik', $karyawan->nik)->berlaku()
-            ->whereIn('status', [JenisPengajuan::Izin->value, JenisPengajuan::Sakit->value])
-            ->whereYear('tgl_izin', $acuan->year)->whereMonth('tgl_izin', $acuan->month)->count();
+        return match ($jenis) {
+            JenisPengajuan::Cuti => true,
+            JenisPengajuan::TugasLuar => false,
+            JenisPengajuan::Izin, JenisPengajuan::Sakit => ! ($lampiran !== null && mb_strlen($keterangan) >= self::KETERANGAN_MIN),
+        };
     }
 
-    public function sisaKuotaBulan(Karyawan $karyawan, CarbonInterface $acuan): int
+    /**
+     * Pastikan saldo cukup untuk $hari hari yang memotong cuti pada $tahun. Yang melebihi sisa tahun ini
+     * dipinjam dari jatah tahun berikutnya, paling banyak sebesar sisa jatah tahun itu. Mengembalikan
+     * jumlah hari yang dipinjam (0 bila cukup).
+     *
+     * @throws AturanBisnisException
+     */
+    private function periksaSaldo(Karyawan $karyawan, int $tahun, int $hari, JenisPengajuan $jenis): int
     {
-        return max(0, (int) Pengaturan::ambil('izin.kuota_bulanan') - $this->jumlahPengajuanBulan($karyawan, $acuan));
+        $r = $this->rincianCuti($karyawan, $tahun);
+        $sisa = max(0, $r['sisa']);
+        if ($hari <= $sisa) {
+            return 0;
+        }
+
+        // Tambahan luapan ke tahun berikutnya akibat pengajuan ini (memperhitungkan luapan yang sudah ada).
+        $pinjam = max(0, $r['terpakai'] + $hari - $r['jatah']) - max(0, $r['terpakai'] - $r['jatah']);
+        $sisaDepan = max(0, $this->rincianCuti($karyawan, $tahun + 1)['sisa']);
+        if ($pinjam <= $sisaDepan) {
+            return $pinjam;
+        }
+
+        $depan = $tahun + 1;
+        if ($jenis === JenisPengajuan::Cuti) {
+            throw new AturanBisnisException(
+                "Sisa cuti {$tahun} Anda {$sisa} hari, pengajuan ini {$hari} hari kerja. Kekurangan {$pinjam} hari akan dipotong dari jatah {$depan}, tetapi jatah {$depan} hanya tersisa {$sisaDepan} hari."
+            );
+        }
+
+        throw new AturanBisnisException(
+            "Tanpa surat dan keterangan, {$hari} hari izin/sakit ini memotong cuti tahunan, tetapi saldo tidak cukup (sisa {$sisa} hari, jatah {$depan} tersisa {$sisaDepan} hari). Lampirkan surat (mis. surat dokter) beserta keterangan agar tidak memotong cuti."
+        );
     }
 
-    /** Saldo cuti tahunan = jatah - cuti yang menunggu/disetujui pada tahun tsb. */
+    /**
+     * Rincian saldo cuti pada $tahun. Luapan = hari yang melebihi jatah tahun sebelumnya (dipinjam dari
+     * tahun ini). Hanya pengajuan yang memotong cuti dan berstatus menunggu/disetujui yang dihitung.
+     *
+     * @return array{jatah: int, sendiri: int, luapan: int, terpakai: int, sisa: int}  sisa dapat negatif pada data lama
+     */
+    public function rincianCuti(Karyawan $karyawan, int $tahun): array
+    {
+        $jatah = $karyawan->jatahCutiTahunan();
+        $awal = $tahun - self::TAHUN_MUNDUR;
+
+        // Satu query; batas atas "< 1 Jan tahun berikutnya" agar benar baik untuk kolom DATE maupun DATETIME.
+        $perTahun = [];
+        PengajuanIzin::query()->where('nik', $karyawan->nik)->berlaku()->where('potong_cuti', true)
+            ->where('tgl_izin', '>=', $awal.'-01-01')->where('tgl_izin', '<', ($tahun + 1).'-01-01')
+            ->get(['tgl_izin', 'jumlah_hari'])
+            ->each(function (PengajuanIzin $p) use (&$perTahun) {
+                $th = Carbon::parse($p->tgl_izin)->year;
+                $perTahun[$th] = ($perTahun[$th] ?? 0) + (int) $p->jumlah_hari;
+            });
+
+        // Luapan bergulir dari tahun ke tahun; loop selalu berhenti (maksimal TAHUN_MUNDUR putaran).
+        $luapan = 0;
+        for ($th = $awal; $th < $tahun; $th++) {
+            $luapan = max(0, ($perTahun[$th] ?? 0) + $luapan - $jatah);
+        }
+
+        $sendiri = $perTahun[$tahun] ?? 0;
+        $terpakai = $sendiri + $luapan;
+
+        return ['jatah' => $jatah, 'sendiri' => $sendiri, 'luapan' => $luapan, 'terpakai' => $terpakai, 'sisa' => $jatah - $terpakai];
+    }
+
+    /** Sisa cuti tahun ini yang masih bisa dipakai tanpa meminjam (tidak pernah negatif). */
     public function sisaCuti(Karyawan $karyawan, int $tahun): int
     {
-        $terpakai = (int) PengajuanIzin::query()->where('nik', $karyawan->nik)->berlaku()
-            ->where('status', JenisPengajuan::Cuti->value)
-            ->whereYear('tgl_izin', $tahun)->sum('jumlah_hari');
-
-        return max(0, $karyawan->jatahCutiTahunan() - $terpakai);
+        return max(0, $this->rincianCuti($karyawan, $tahun)['sisa']);
     }
 
     /** Karyawan membatalkan pengajuannya sendiri (hanya selagi menunggu). */

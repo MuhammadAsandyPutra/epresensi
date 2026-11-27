@@ -20,7 +20,15 @@
         @if ($p->lokasi_tugas)
             <div style="font-size:14px;margin-top:8px;font-weight:600"><ion-icon name="location-outline"></ion-icon> {{ $p->lokasi_tugas }}</div>
         @endif
-        <div style="font-size:14px;margin-top:8px">{{ $p->keterangan }}</div>
+        @if ($p->potong_cuti && $p->jenis() !== \App\Enums\JenisPengajuan::Cuti)
+            <div style="font-size:12px;margin-top:6px;color:#8a5a00">Tanpa surat/keterangan: memotong cuti tahunan ({{ $p->jumlah_hari }} hari)</div>
+        @elseif ($p->jenis()->bisaBerdokumen() && $p->lampiran)
+            <div style="font-size:12px;margin-top:6px;color:#1b7a4a">Berdokumen: tidak memotong cuti</div>
+        @endif
+        @if ($p->hari_pinjam > 0)
+            <div style="font-size:12px;margin-top:4px;color:#8a5a00">{{ $p->hari_pinjam }} hari dipotong dari jatah cuti {{ \Illuminate\Support\Carbon::parse($p->tgl_izin)->year + 1 }}</div>
+        @endif
+        @if ($p->keterangan)<div style="font-size:14px;margin-top:8px">{{ $p->keterangan }}</div>@endif
         @if ($p->status_approved === \App\Enums\StatusPengajuan::Menunggu)
             <div style="font-size:12px;margin-top:6px;color:var(--redam)">Menunggu persetujuan Direksi</div>
         @endif

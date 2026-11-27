@@ -44,7 +44,7 @@ Tiga peran panel dengan tanggung jawab yang jelas:
 | | Fitur | Ringkas |
 |---|---|---|
 | 📍 | **Presensi GPS + selfie** | Validasi di server: radius kantor (Haversine), akurasi GPS, jendela jam, satu baris per karyawan per hari |
-| 📝 | **Izin / Sakit / Cuti** | Kuota bulanan, saldo cuti, cek bentrok tanggal, lampiran, pembatalan selagi menunggu |
+| 📝 | **Izin / Sakit / Cuti** | Tanpa kuota bulanan: izin/sakit berdokumen bebas potong, tanpa surat memotong cuti; kekurangan saldo dipinjam dari tahun depan |
 | 🚗 | **Tugas luar** | Disetujui Direksi dulu; presensi tetap wajib (selfie + GPS) tetapi radius kantor dilewati |
 | ⏱️ | **Lembur** | Pulang melewati batas lembur → keterangan wajib → disetujui Direksi, diketahui HR |
 | 🚪 | **Pulang lebih awal** | Boleh untuk keperluan mendadak dengan alasan wajib; keputusan Direksi menyusul |
@@ -111,9 +111,21 @@ Presensi **mencurigakan** (akurasi > 50 m, atau koordinat identik tiga kali bert
 <details>
 <summary><b>Izin, sakit, cuti, tugas luar</b></summary>
 
-Hari kerja dihitung dari jadwal karyawan dikurangi hari libur. Tanggal tidak boleh bentrok. Izin/sakit memakai kuota bulanan; cuti memakai saldo
-tahunan (menunggu + disetujui ikut dihitung); sakit boleh diajukan mundur N hari. **Tugas luar** tidak memakai kuota maupun saldo, tetapi tujuan/lokasi wajib.
-Rentang satu pengajuan maksimal 366 hari. Direksi menyetujui, menolak (alasan wajib), atau membatalkan keputusan.
+Hari kerja dihitung dari jadwal karyawan dikurangi hari libur. Tanggal tidak boleh bentrok; sakit boleh diajukan mundur N hari; rentang satu pengajuan maksimal 366 hari.
+Direksi menyetujui, menolak (alasan wajib), atau membatalkan keputusan. **Tugas luar** tidak memotong cuti, tetapi tujuan/lokasi wajib.
+
+**Tidak ada kuota bulanan untuk izin/sakit.** Yang menentukan adalah dokumennya:
+
+| Pengajuan | Memotong jatah cuti tahunan? |
+|---|---|
+| Izin/sakit dengan **keterangan dan surat (lampiran)** | Tidak |
+| Izin/sakit **tanpa surat** atau **tanpa keterangan** | Ya, sebanyak hari kerjanya |
+| Cuti | Ya |
+| Tugas luar | Tidak |
+
+**Pinjam dari jatah tahun depan.** Bila sisa cuti tidak cukup, kekurangannya dipotong dari jatah tahun berikutnya. Contoh: sisa 2 hari, cuti 4 hari → 2 hari dari sisa,
+2 hari dipotong dari jatah tahun depan. Syaratnya jatah tahun depan masih cukup; bila tidak, pengajuan ditolak. Pengajuan yang memotong cuti tidak boleh lintas tahun
+(ajukan terpisah per tahun). Pengajuan yang ditolak atau dibatalkan mengembalikan saldo. Izin/sakit lama (sebelum aturan ini) tidak dipotong surut.
 </details>
 
 <details>
@@ -275,7 +287,6 @@ Default ada di `config/presensi.php`; sebagian dapat diubah HR/Admin dari menu *
 | `gps.akurasi_maks` | 100 m | Presensi ditolak bila akurasi GPS lebih buruk |
 | `gps.review_akurasi` | 50 m | Di atas ini diberi tanda *perlu review* |
 | `foto.maks_kb` / `retensi_bulan` | 1500 / 12 | Ukuran foto dan masa simpan |
-| `izin.kuota_bulanan` | 3 | Izin/sakit per bulan |
 | `izin.sakit_mundur_hari` | 7 | Sakit boleh diajukan mundur |
 | `izin.maks_rentang_hari` | 366 | Rentang satu pengajuan |
 | `lembur.minimal_menit` | 30 | Batas setelah jam pulang sebelum wajib keterangan lembur |
@@ -294,7 +305,7 @@ app/
   Services/       <<< ATURAN BISNIS di sini, bukan di controller >>>
     PresensiService        validasi & pencatatan masuk/pulang, lembur, pulang awal, penahanan
     PresensiLuarService    keputusan presensi luar kantor yang ditahan
-    PengajuanService       kuota, saldo cuti, bentrok, alur persetujuan
+    PengajuanService       saldo cuti + pinjaman tahun depan, izin berdokumen, bentrok, persetujuan
     LemburService          keputusan lembur
     PulangCepatService     keputusan pulang lebih awal
     KoreksiPresensiService koreksi HR dengan jejak audit
@@ -326,6 +337,7 @@ Migrasi aman untuk database yang sudah berisi tabel (`hasTable`/`hasColumn`): ta
 | `2026_11_24_000002` | Pulang lebih awal |
 | `2026_11_24_000003` | Koreksi presensi |
 | `2026_11_25_000004` | Presensi luar kantor (`presensi_tahan`) |
+| `2026_11_26_000005` | Aturan cuti: `potong_cuti` dan `hari_pinjam` pada pengajuan |
 
 * `pengajuan_izin.status` = **jenis** (1 izin, 2 sakit, 3 cuti, 4 tugas luar); `status_approved` = keputusan (0 menunggu, 1 setuju, 2 tolak, 3 dibatalkan).
 * Pengajuan lama otomatis dianggap sudah diketahui HR agar lencana menu tidak penuh.
@@ -352,7 +364,7 @@ php artisan test
 ```
 
 Cakupan: Haversine dan parsing lokasi, terlambat/pulang cepat, pemisahan portal dan peran, alur presensi (radius, akurasi, jam, ganda, foto),
-pengajuan (hari kerja, saldo, bentrok, kuota), alur Direksi/HR, tugas luar, lembur, pulang awal, koreksi, presensi luar kantor, KPI,
+pengajuan (hari kerja, saldo cuti, pinjaman tahun depan, izin berdokumen, bentrok), alur Direksi/HR, tugas luar, lembur, pulang awal, koreksi, presensi luar kantor, KPI,
 serta **pengaman memori** (loop tanggal dan kiriman foto raksasa). Sebelum rilis, uji manual dengan 5–10 karyawan di berbagai HP dan browser.
 
 ---
@@ -402,5 +414,5 @@ Yang perlu Anda lakukan di produksi: `APP_DEBUG=false`, `SESSION_SECURE_COOKIE=t
 * Jam server sebagai acuan, presensi ganda dicegah, radius dan akurasi divalidasi di server.
 * Foto tidak lagi di `public/storage`; akses lewat route berotorisasi.
 * Migrasi lengkap untuk semua tabel, plus log aktivitas, hari libur, dan pengaturan.
-* Fitur baru: cuti dan saldo, kuota, bentrok tanggal, KPI + CSV, rekap bulanan, penanda review, persetujuan Direksi, tugas luar, lembur, pulang awal, koreksi HR, presensi luar kantor.
+* Fitur baru: cuti, saldo, dan pinjaman tahun depan, bentrok tanggal, KPI + CSV, rekap bulanan, penanda review, persetujuan Direksi, tugas luar, lembur, pulang awal, koreksi HR, presensi luar kantor.
 * Tidak dibawa: papan peringkat harian di beranda (mengungkap jam tiba rekan kerja) dan unduhan Excel berbasis header HTML (diganti CSV).

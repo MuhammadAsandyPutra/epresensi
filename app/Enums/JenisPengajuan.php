@@ -30,8 +30,8 @@ enum JenisPengajuan: int
         };
     }
 
-    /** Izin & sakit dibatasi kuota bulanan; cuti dibatasi saldo tahunan; tugas luar tidak dibatasi. */
-    public function memakaiKuotaBulanan(): bool
+    /** Izin & sakit dapat berdokumen (keterangan + surat); tanpa dokumen keduanya memotong cuti tahunan. */
+    public function bisaBerdokumen(): bool
     {
         return $this === self::Izin || $this === self::Sakit;
     }

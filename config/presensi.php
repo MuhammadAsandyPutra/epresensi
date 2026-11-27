@@ -4,7 +4,7 @@
 |--------------------------------------------------------------------------
 | Pengaturan Aplikasi Presensi
 |--------------------------------------------------------------------------
-| Nilai di sini adalah DEFAULT. Sebagian nilai (bobot KPI, kuota izin, dsb.)
+| Nilai di sini adalah DEFAULT. Sebagian nilai (bobot KPI, jatah cuti, dsb.)
 | dapat diubah HR dari menu "Pengaturan" dan disimpan di tabel `pengaturan`;
 | nilai di tabel akan menimpa nilai default ini. Akses lewat
 | App\Models\Pengaturan::ambil('kpi.bobot_kehadiran').
@@ -29,7 +29,6 @@ return [
     ],
 
     'izin' => [
-        'kuota_bulanan'      => 3, // jumlah pengajuan izin/sakit per bulan (cuti tidak dihitung)
         'sakit_mundur_hari'  => 7, // sakit boleh diajukan mundur maksimal sekian hari
         'lampiran_maks_kb'   => 2048,
         'maks_rentang_hari'  => 366, // rentang satu pengajuan; mencegah loop hari yang sangat panjang (mis. salah ketik tahun)

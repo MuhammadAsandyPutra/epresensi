@@ -21,7 +21,7 @@ class BatasMemoriTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Storage::fake('local');
+        Storage::fake(config('presensi.foto.disk'));
         Carbon::setTestNow('2026-11-16 08:00:00'); // Senin
         $this->siapkanMaster();
     }

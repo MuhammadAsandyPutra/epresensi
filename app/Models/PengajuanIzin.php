@@ -17,7 +17,7 @@ class PengajuanIzin extends Model
     protected $fillable = [
         'nik', 'tgl_izin', 'tgl_selesai', 'status', 'keterangan', 'status_approved',
         'jumlah_hari', 'lampiran', 'catatan_hr', 'diputuskan_oleh', 'diputuskan_pada',
-        'lokasi_tugas', 'diketahui_hr_oleh', 'diketahui_hr_pada',
+        'lokasi_tugas', 'diketahui_hr_oleh', 'diketahui_hr_pada', 'potong_cuti', 'hari_pinjam',
     ];
 
     protected function casts(): array
@@ -25,6 +25,7 @@ class PengajuanIzin extends Model
         return [
             'diputuskan_pada' => 'datetime',
             'diketahui_hr_pada' => 'datetime',
+            'potong_cuti' => 'boolean',
             'status' => JenisPengajuan::class,          // jenis pengajuan
             'status_approved' => StatusPengajuan::class, // keputusan HR
         ];

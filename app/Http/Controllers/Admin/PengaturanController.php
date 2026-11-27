@@ -9,7 +9,7 @@ use App\Models\Pengaturan;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
-/** Pengaturan yang boleh diubah HR tanpa menyentuh kode: bobot KPI, kuota izin, jatah cuti, GPS. */
+/** Pengaturan yang boleh diubah HR tanpa menyentuh kode: bobot KPI, jatah cuti, GPS. */
 class PengaturanController extends Controller
 {
     /** nama field form => kunci pengaturan */
@@ -17,7 +17,7 @@ class PengaturanController extends Controller
         'kpi_bobot_kehadiran', 'kpi_bobot_ketepatan', 'kpi_bobot_disiplin',
         'kpi_penalti_per_menit', 'kpi_penalti_alpa', 'kpi_penalti_pulang_cepat',
         'kpi_batas_sangat_baik', 'kpi_batas_baik', 'kpi_batas_cukup',
-        'izin_kuota_bulanan', 'izin_sakit_mundur_hari', 'cuti_jatah_tahunan',
+        'izin_sakit_mundur_hari', 'cuti_jatah_tahunan',
         'gps_akurasi_maks', 'gps_review_akurasi',
         'lembur_minimal_menit',
     ];

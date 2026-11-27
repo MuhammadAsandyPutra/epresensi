@@ -23,7 +23,6 @@ class PengaturanRequest extends FormRequest
             'kpi_batas_sangat_baik' => ['required', 'numeric', 'between:0,100', 'gt:kpi_batas_baik'],
             'kpi_batas_baik' => ['required', 'numeric', 'between:0,100', 'gt:kpi_batas_cukup'],
             'kpi_batas_cukup' => ['required', 'numeric', 'between:0,100'],
-            'izin_kuota_bulanan' => ['required', 'integer', 'between:0,31'],
             'izin_sakit_mundur_hari' => ['required', 'integer', 'between:0,60'],
             'cuti_jatah_tahunan' => ['required', 'integer', 'between:0,60'],
             'gps_akurasi_maks' => ['required', 'integer', 'between:10,1000'],

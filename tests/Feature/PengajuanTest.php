@@ -8,7 +8,9 @@ use App\Models\HariLibur;
 use App\Models\PengajuanIzin;
 use App\Services\PengajuanService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\MembuatData;
 use Tests\TestCase;
 
@@ -21,6 +23,7 @@ class PengajuanTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake(config('presensi.foto.disk')); // lampiran surat tidak boleh menulis ke penyimpanan sungguhan
         Carbon::setTestNow('2026-11-16 08:00:00'); // Senin
         $this->siapkanMaster();
         $this->service = app(PengajuanService::class);
@@ -58,14 +61,6 @@ class PengajuanTest extends TestCase
         $this->assertSame(9, $this->service->sisaCuti($k, 2026));
     }
 
-    public function test_cuti_melebihi_saldo_ditolak(): void
-    {
-        $k = $this->buatKaryawan('1001', ['jatah_cuti' => 2]);
-
-        $this->expectException(AturanBisnisException::class);
-        $this->service->ajukan($k, $this->data()); // 3 hari > 2
-    }
-
     public function test_tanggal_bentrok_ditolak(): void
     {
         $k = $this->buatKaryawan();
@@ -75,15 +70,116 @@ class PengajuanTest extends TestCase
         $this->service->ajukan($k, $this->data(['jenis' => 1, 'tgl_izin' => '2026-11-24', 'tgl_selesai' => '2026-11-24']));
     }
 
-    public function test_kuota_izin_bulanan(): void
+    private function surat(): UploadedFile
+    {
+        return UploadedFile::fake()->create('surat.pdf', 100, 'application/pdf');
+    }
+
+    // ------------------------------------------------------------ aturan izin/sakit & saldo cuti
+
+    public function test_izin_sakit_tanpa_kuota_bulanan_bila_berdokumen_tidak_memotong_cuti(): void
     {
         $k = $this->buatKaryawan();
-        foreach (['2026-11-17', '2026-11-18', '2026-11-19'] as $tgl) {
-            $this->service->ajukan($k, $this->data(['jenis' => 1, 'tgl_izin' => $tgl, 'tgl_selesai' => $tgl]));
+
+        // Empat izin berdokumen dalam satu bulan: tidak ada kuota, tidak ada potongan.
+        foreach (['2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20'] as $tgl) {
+            $p = $this->service->ajukan($k, $this->data(['jenis' => 1, 'tgl_izin' => $tgl, 'tgl_selesai' => $tgl, 'keterangan' => 'Demam tinggi']), $this->surat());
+            $this->assertFalse($p->potong_cuti);
+            $this->assertSame(0, $p->hari_pinjam);
         }
 
+        $this->assertSame(12, $this->service->sisaCuti($k, 2026));
+    }
+
+    public function test_izin_tanpa_surat_atau_tanpa_keterangan_memotong_cuti(): void
+    {
+        $k = $this->buatKaryawan();
+
+        $a = $this->service->ajukan($k, $this->data(['jenis' => 1, 'tgl_izin' => '2026-11-17', 'tgl_selesai' => '2026-11-17', 'keterangan' => 'Urusan keluarga'])); // tanpa surat
+        $b = $this->service->ajukan($k, $this->data(['jenis' => 2, 'tgl_izin' => '2026-11-18', 'tgl_selesai' => '2026-11-18', 'keterangan' => '']), $this->surat());      // surat tanpa keterangan
+        $c = $this->service->ajukan($k, $this->data(['jenis' => 2, 'tgl_izin' => '2026-11-19', 'tgl_selesai' => '2026-11-19', 'keterangan' => null]));                    // tanpa keduanya
+
+        foreach ([$a, $b, $c] as $p) {
+            $this->assertTrue($p->potong_cuti);
+        }
+        $this->assertNull($c->keterangan);
+        $this->assertSame(9, $this->service->sisaCuti($k, 2026)); // 12 - 3 hari
+    }
+
+    public function test_ditolak_atau_dibatalkan_mengembalikan_saldo(): void
+    {
+        $k = $this->buatKaryawan();
+        $p = $this->service->ajukan($k, $this->data());
+        $this->assertSame(9, $this->service->sisaCuti($k, 2026));
+
+        $this->service->putuskan($p, StatusPengajuan::Ditolak, $this->buatAdmin('direksi'), 'Bentrok jadwal');
+        $this->assertSame(12, $this->service->sisaCuti($k, 2026));
+    }
+
+    public function test_kekurangan_cuti_dipinjam_dari_jatah_tahun_depan(): void
+    {
+        $k = $this->buatKaryawan(); // jatah 12
+
+        // Pakai 10 hari kerja (23 Nov - 4 Des) -> sisa 2
+        $this->service->ajukan($k, $this->data(['tgl_izin' => '2026-11-23', 'tgl_selesai' => '2026-12-04']));
+        $this->assertSame(2, $this->service->sisaCuti($k, 2026));
+
+        // Ingin cuti 4 hari (7-10 Des): 2 hari dari sisa, 2 hari dipinjam dari jatah 2027
+        $p = $this->service->ajukan($k, $this->data(['tgl_izin' => '2026-12-07', 'tgl_selesai' => '2026-12-10']));
+
+        $this->assertSame(4, $p->jumlah_hari);
+        $this->assertSame(2, $p->hari_pinjam);
+        $this->assertSame(0, $this->service->sisaCuti($k, 2026));
+
+        $depan = $this->service->rincianCuti($k, 2027);
+        $this->assertSame(2, $depan['luapan']);
+        $this->assertSame(10, $depan['sisa']); // 12 - 2 pinjaman
+    }
+
+    public function test_pinjaman_dibatasi_sisa_jatah_tahun_depan(): void
+    {
+        $k = $this->buatKaryawan('1001', ['jatah_cuti' => 2]);
+
+        // 4 hari: sisa 2 + pinjam 2 (jatah 2027 = 2) -> tepat cukup
+        $this->service->ajukan($k, $this->data(['tgl_izin' => '2026-11-23', 'tgl_selesai' => '2026-11-26']));
+        $this->assertSame(0, $this->service->rincianCuti($k, 2027)['sisa']);
+
+        // Tambahan 1 hari lagi: jatah 2027 sudah habis dipinjam -> ditolak
         $this->expectException(AturanBisnisException::class);
-        $this->service->ajukan($k, $this->data(['jenis' => 1, 'tgl_izin' => '2026-11-20', 'tgl_selesai' => '2026-11-20']));
+        $this->expectExceptionMessage('jatah 2027');
+        $this->service->ajukan($k, $this->data(['tgl_izin' => '2026-11-30', 'tgl_selesai' => '2026-11-30']));
+    }
+
+    public function test_cuti_melebihi_sisa_dan_jatah_tahun_depan_ditolak(): void
+    {
+        $k = $this->buatKaryawan('1001', ['jatah_cuti' => 2]);
+
+        $this->expectException(AturanBisnisException::class);
+        $this->service->ajukan($k, $this->data(['tgl_izin' => '2026-11-23', 'tgl_selesai' => '2026-11-27'])); // 5 hari: pinjam 3 > 2
+    }
+
+    public function test_izin_tanpa_surat_ditolak_bila_saldo_tidak_cukup_dan_menyarankan_surat(): void
+    {
+        $k = $this->buatKaryawan('1001', ['jatah_cuti' => 1]);
+
+        $this->expectException(AturanBisnisException::class);
+        $this->expectExceptionMessage('Lampirkan surat');
+        $this->service->ajukan($k, $this->data(['jenis' => 2, 'tgl_izin' => '2026-11-17', 'tgl_selesai' => '2026-11-19', 'keterangan' => 'Sakit'])); // 3 hari tanpa surat
+    }
+
+    public function test_pengajuan_yang_memotong_cuti_tidak_boleh_lintas_tahun_tetapi_berdokumen_boleh(): void
+    {
+        $k = $this->buatKaryawan();
+
+        try {
+            $this->service->ajukan($k, $this->data(['tgl_izin' => '2026-12-30', 'tgl_selesai' => '2027-01-04']));
+            $this->fail('Cuti lintas tahun seharusnya ditolak.');
+        } catch (AturanBisnisException) {
+            $this->assertDatabaseCount('pengajuan_izin', 0);
+        }
+
+        $p = $this->service->ajukan($k, $this->data(['jenis' => 2, 'tgl_izin' => '2026-12-30', 'tgl_selesai' => '2027-01-04', 'keterangan' => 'Rawat inap']), $this->surat());
+        $this->assertFalse($p->potong_cuti);
     }
 
     public function test_direksi_menyetujui_dan_bisa_membatalkan_keputusan(): void
@@ -118,7 +214,7 @@ class PengajuanTest extends TestCase
         $this->assertSame($hr->id, (int) $p->fresh()->diketahui_hr_oleh);
     }
 
-    public function test_tugas_luar_wajib_lokasi_dan_tidak_memakai_kuota_atau_cuti(): void
+    public function test_tugas_luar_wajib_lokasi_dan_tidak_memotong_cuti(): void
     {
         $k = $this->buatKaryawan();
 
@@ -129,7 +225,7 @@ class PengajuanTest extends TestCase
             $this->assertDatabaseCount('pengajuan_izin', 0);
         }
 
-        // Empat tugas luar dalam sebulan: tidak terkena kuota izin/sakit (3x) dan tidak mengurangi saldo cuti.
+        // Empat tugas luar dalam sebulan: tidak memotong saldo cuti.
         foreach (['2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20'] as $tgl) {
             $p = $this->service->ajukan($k, $this->data(['jenis' => 4, 'tgl_izin' => $tgl, 'tgl_selesai' => $tgl, 'lokasi_tugas' => 'Cabang Banjarmasin']));
             $this->assertSame('Cabang Banjarmasin', $p->lokasi_tugas);

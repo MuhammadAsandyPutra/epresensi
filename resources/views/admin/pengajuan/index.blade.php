@@ -34,7 +34,10 @@
             @forelse ($daftar as $p)
                 <tr>
                     <td><div class="fw-bold">{{ $p->karyawan?->nama_lengkap ?? $p->nik }}</div><div class="text-secondary small">{{ $p->nik }} · {{ $p->karyawan?->departemen?->nama_dept }}</div></td>
-                    <td><span class="badge bg-{{ $p->jenis()->warna() }}-lt">{{ $p->jenis()->label() }}</span></td>
+                    <td><span class="badge bg-{{ $p->jenis()->warna() }}-lt">{{ $p->jenis()->label() }}</span>
+                        @if ($p->potong_cuti)<div class="mt-1"><span class="badge bg-orange-lt" title="Memotong jatah cuti tahunan">Memotong cuti</span></div>
+                        @elseif ($p->jenis()->bisaBerdokumen() && $p->lampiran)<div class="mt-1"><span class="badge bg-green-lt" title="Ada surat/lampiran; periksa kesahihannya">Berdokumen</span></div>@endif
+                        @if ($p->hari_pinjam > 0)<div class="text-secondary small">Pinjam {{ $p->hari_pinjam }} hr dari jatah {{ \Illuminate\Support\Carbon::parse($p->tgl_izin)->year + 1 }}</div>@endif</td>
                     <td>{{ $p->tgl_izin->translatedFormat('d M Y') }}@if ($p->tgl_selesai && ! $p->tgl_selesai->isSameDay($p->tgl_izin)) – {{ $p->tgl_selesai->translatedFormat('d M Y') }}@endif
                         <div class="text-secondary small">{{ $p->jumlah_hari }} hari kerja</div></td>
                     <td style="max-width:280px;white-space:normal">@if ($p->lokasi_tugas)<div class="fw-bold"><i class="ti ti-map-pin"></i> {{ $p->lokasi_tugas }}</div>@endif{{ $p->keterangan }}

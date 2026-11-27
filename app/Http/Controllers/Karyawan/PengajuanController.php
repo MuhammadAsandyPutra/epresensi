@@ -9,6 +9,7 @@ use App\Http\Requests\Karyawan\PengajuanRequest;
 use App\Models\PengajuanIzin;
 use App\Services\PengajuanService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
@@ -29,22 +30,33 @@ class PengajuanController extends Controller
     {
         $karyawan = Auth::guard('karyawan')->user();
 
+        $tahun = now()->year;
+
         return view('karyawan.pengajuan.create', [
             'jenis' => JenisPengajuan::cases(),
-            'sisaCuti' => $this->service->sisaCuti($karyawan, now()->year),
-            'sisaKuota' => $this->service->sisaKuotaBulan($karyawan, now()),
+            'tahun' => $tahun,
+            'rincian' => $this->service->rincianCuti($karyawan, $tahun),
+            'rincianDepan' => $this->service->rincianCuti($karyawan, $tahun + 1),
         ]);
     }
 
     public function store(PengajuanRequest $request): RedirectResponse
     {
         try {
-            $this->service->ajukan(Auth::guard('karyawan')->user(), $request->validated(), $request->file('lampiran'));
+            $p = $this->service->ajukan(Auth::guard('karyawan')->user(), $request->validated(), $request->file('lampiran'));
         } catch (AturanBisnisException $e) {
             return back()->withInput()->with('galat', $e->getMessage());
         }
 
-        return redirect()->route('izin.index')->with('sukses', 'Pengajuan terkirim ke Direksi dan menunggu persetujuan.');
+        $pesan = 'Pengajuan terkirim ke Direksi dan menunggu persetujuan.';
+        if ($p->potong_cuti && $p->jenis() !== JenisPengajuan::Cuti) {
+            $pesan .= " Karena tanpa surat/keterangan, {$p->jumlah_hari} hari ini memotong cuti tahunan Anda.";
+        }
+        if ($p->hari_pinjam > 0) {
+            $pesan .= " {$p->hari_pinjam} hari dipotong dari jatah cuti ".(Carbon::parse($p->tgl_izin)->year + 1).'.';
+        }
+
+        return redirect()->route('izin.index')->with('sukses', $pesan);
     }
 
     public function batal(PengajuanIzin $pengajuan): RedirectResponse

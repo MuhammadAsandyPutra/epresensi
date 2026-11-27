@@ -20,7 +20,8 @@ class PengajuanRequest extends FormRequest
             'tgl_izin' => ['required', 'date'],
             'tgl_selesai' => ['nullable', 'date', 'after_or_equal:tgl_izin'],
             'lokasi_tugas' => ['nullable', 'string', 'max:150', 'required_if:jenis,'.JenisPengajuan::TugasLuar->value],
-            'keterangan' => ['required', 'string', 'min:5', 'max:500'],
+            // Wajib hanya untuk tugas luar. Izin/sakit tanpa keterangan + surat diperbolehkan, tetapi memotong cuti.
+            'keterangan' => ['nullable', 'required_if:jenis,'.JenisPengajuan::TugasLuar->value, 'string', 'min:5', 'max:500'],
             'lampiran' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:'.config('presensi.izin.lampiran_maks_kb')],
         ];
     }
