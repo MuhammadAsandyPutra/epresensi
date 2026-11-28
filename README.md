@@ -48,6 +48,7 @@ Tiga peran panel dengan tanggung jawab yang jelas:
 | 🚗 | **Tugas luar** | Disetujui Direksi dulu; presensi tetap wajib (selfie + GPS) tetapi radius kantor dilewati |
 | ⏱️ | **Lembur** | Pulang melewati batas lembur → keterangan wajib → disetujui Direksi, diketahui HR |
 | 🚪 | **Pulang lebih awal** | Boleh untuk keperluan mendadak dengan alasan wajib; keputusan Direksi menyusul |
+| 📱 | **Presensi QR (tanpa foto)** | Karyawan memindai QR yang **berganti otomatis** di layar kantor; GPS tetap divalidasi diam-diam di server |
 | 🏪 | **Presensi luar kantor** | Untuk karyawan yang ditandai HR (mis. menagih angsuran): **ditahan** sampai Direksi menyetujui, lalu tercatat dengan jam asli |
 | ✏️ | **Koreksi presensi** | HR/Admin mengoreksi dengan alasan wajib; jam asli, pelaku, dan waktu tersimpan permanen |
 | 📊 | **KPI disiplin** | Skor bulanan berbobot, kategori, ekspor CSV, rumus & bobot dapat diubah dari menu Pengaturan |
@@ -92,6 +93,7 @@ flowchart TD
 | Menyetujui / menolak (semua jenis) | — | — | ✅ | — |
 | Tandai **diketahui** | — | ✅ | — | ✅ |
 | Koreksi presensi | — | ✅ | — | ✅ |
+| QR Kantor (cetak / ganti QR) | — | ✅ | — | ✅ |
 | Monitoring, laporan, KPI (lihat) | — | ✅ | ✅ | ✅ |
 | Data karyawan, departemen, hari libur, pengaturan | — | ✅ | — | ✅ |
 | Lokasi kantor, jam kerja, akun panel, log | — | — | — | ✅ |
@@ -133,6 +135,30 @@ Direksi menyetujui, menolak (alasan wajib), atau membatalkan keputusan. **Tugas 
 
 * **Sebelum jam pulang:** presensi tetap diterima, alasan wajib. Status *Menunggu*; Direksi memutuskan sesudahnya. Yang **disetujui** tidak dihitung pulang cepat di KPI; yang ditolak/belum diputuskan tetap dihitung.
 * **Setelah jam pulang + batas lembur** (default 30 menit): keterangan lembur wajib. Status *Menunggu* → Direksi memutuskan, HR menandai diketahui.
+</details>
+
+<details>
+<summary><b>Presensi QR (tanpa foto)</b></summary>
+
+Opsi untuk karyawan yang sudah berada di kantor: login, buka **Presensi dengan QR**, lalu pindai QR kantor. Tidak ada selfie.
+Nonaktif secara default; Admin menyalakannya di **Pengaturan → Presensi dengan QR**.
+
+Dua jenis QR (Pengaturan → *Jenis QR*):
+
+| | **Tetap** (bawaan) | **Berganti otomatis** |
+|---|---|---|
+| Cara pakai | Cetak dan tempel di **dalam** kantor (menu **QR Kantor** → Cetak) | Buka menu **QR Kantor** di tablet/monitor kantor yang selalu menyala |
+| QR berubah | **Hanya saat Admin/HR menekan *Ganti QR*** (QR lama langsung tidak berlaku, cetak ulang) | Otomatis tiap `qr.berlaku_detik` (default 60 dtk) |
+| Perangkat | Tidak perlu | Perlu layar yang menyala terus + internet |
+| Risiko foto QR dikirim ke orang lain | **Lebih tinggi**: penghalang utamanya GPS | Rendah: foto cepat kedaluwarsa |
+
+* Token bertanda tangan (HMAC dari `APP_KEY`) atas kode cabang + versi (tetap) atau slot waktu (berganti); tidak ada rahasia yang disimpan di database.
+  Hanya berlaku untuk cabang karyawan itu. **Mengganti `APP_KEY` membuat QR tetap tidak berlaku** (cetak ulang).
+* **GPS tetap berjalan dan divalidasi di server** (akurasi dan radius kantor), tetapi koordinat dan jarak tidak ditampilkan. Radius **ketat**: tugas luar dan izin
+  presensi luar kantor tidak melonggarkannya, dan presensi QR tidak pernah ditahan. Pesan galat radius tidak menyebut jarak.
+* **Saran untuk QR tetap:** tempel di tempat yang tidak terlihat dari luar kantor, ganti berkala (mis. tiap bulan) atau segera bila fotonya tersebar,
+  dan pantau tanda *perlu review* serta koordinat yang berulang di Monitoring.
+* Lembur dan pulang lebih awal tetap berlaku (keterangan diminta). Kolom `presensi.metode` mencatat `foto`, `qr`, atau `campuran`; tampil di Monitoring, Laporan, dan CSV.
 </details>
 
 <details>
@@ -290,6 +316,9 @@ Default ada di `config/presensi.php`; sebagian dapat diubah HR/Admin dari menu *
 | `izin.sakit_mundur_hari` | 7 | Sakit boleh diajukan mundur |
 | `izin.maks_rentang_hari` | 366 | Rentang satu pengajuan |
 | `lembur.minimal_menit` | 30 | Batas setelah jam pulang sebelum wajib keterangan lembur |
+| `qr.aktif` | nonaktif | Menyalakan presensi QR tanpa foto |
+| `qr.mode` | tetap | `tetap` (dicetak, diganti manual) atau `berganti` (otomatis di layar) |
+| `qr.berlaku_detik` | 60 | Mode berganti: QR berganti tiap sekian detik (token berlaku 1x–2x), batas 15–600 |
 | `koreksi.maks_hari_mundur` | 31 | Batas tanggal koreksi HR |
 | `cuti.jatah_tahunan` | 12 | Jatah cuti per tahun |
 | `kpi.*` | 40/40/20 | Bobot, penalti, dan batas kategori KPI |
@@ -305,6 +334,7 @@ app/
   Services/       <<< ATURAN BISNIS di sini, bukan di controller >>>
     PresensiService        validasi & pencatatan masuk/pulang, lembur, pulang awal, penahanan
     PresensiLuarService    keputusan presensi luar kantor yang ditahan
+    QrPresensiService      token QR (tetap atau berganti, HMAC) untuk presensi tanpa foto
     PengajuanService       saldo cuti + pinjaman tahun depan, izin berdokumen, bentrok, persetujuan
     LemburService          keputusan lembur
     PulangCepatService     keputusan pulang lebih awal
@@ -338,6 +368,8 @@ Migrasi aman untuk database yang sudah berisi tabel (`hasTable`/`hasColumn`): ta
 | `2026_11_24_000003` | Koreksi presensi |
 | `2026_11_25_000004` | Presensi luar kantor (`presensi_tahan`) |
 | `2026_11_26_000005` | Aturan cuti: `potong_cuti` dan `hari_pinjam` pada pengajuan |
+| `2026_11_27_000006` | Metode presensi (`presensi.metode`: foto/qr/campuran) |
+| `2026_11_28_000007` | Versi QR per cabang (`cabang.qr_versi`) untuk QR tetap |
 
 * `pengajuan_izin.status` = **jenis** (1 izin, 2 sakit, 3 cuti, 4 tugas luar); `status_approved` = keputusan (0 menunggu, 1 setuju, 2 tolak, 3 dibatalkan).
 * Pengajuan lama otomatis dianggap sudah diketahui HR agar lencana menu tidak penuh.
@@ -394,12 +426,18 @@ Yang perlu Anda lakukan di produksi: `APP_DEBUG=false`, `SESSION_SECURE_COOKIE=t
 | Lencana menu tidak muncul / error saat deploy | Jalankan `php artisan migrate --force`, lalu `php artisan optimize:clear` |
 | Presensi karyawan ditolak "di luar radius" | Cek koordinat Lokasi Kantor; bila memang tugas lapangan, tandai karyawan **Boleh presensi dari luar kantor** |
 | Karyawan tidak bisa presensi sama sekali | HR memakai **Koreksi Presensi** (alasan wajib) |
+| "Kode QR tidak berlaku" | Mode tetap: QR yang dipindai sudah diganti, pasang yang terbaru. Mode berganti: pindai ulang yang sedang tampil dan pastikan jam server benar |
+| Karyawan semua gagal presensi QR | QR baru saja diganti: cetak dan pasang QR terbaru (QR lama tidak berlaku). Periksa juga bahwa `APP_KEY` tidak berubah |
+| Layar QR (mode berganti) berhenti memuat | Sesi login berakhir atau internet putus: muat ulang halaman dan login (gunakan akun HR khusus untuk perangkat kantor) |
+| Pemindai QR tidak membuka kamera | Izinkan akses kamera di browser, atau pindai dengan aplikasi kamera ponsel (login di browser yang sama) |
 
 ---
 
 ## ⚠️ Batasan yang diketahui
 
 * Aplikasi web tidak dapat mendeteksi *fake GPS* sekuat aplikasi native; itulah gunanya tanda *perlu review*.
+* **Presensi QR tidak menyimpan bukti wajah.** Ia mencegah presensi dari luar kantor, tetapi tidak mencegah "titip presensi" oleh orang yang memegang akun dan ponsel rekannya di dalam kantor. Pantau lewat Monitoring dan tanda *perlu review*.
+* QR dan layar kantor bergantung pada internet dan CDN (qrcodejs, html5-qrcode).
 * Belum ada notifikasi email/WhatsApp; pemberitahuan berupa lencana dan daftar di panel.
 * Lembur dihitung per hari presensi; lembur yang melewati tengah malam belum ditangani.
 * Presensi luar kantor yang sudah disetujui tidak dapat dibatalkan dari menunya; ubah lewat Koreksi Presensi agar jejaknya jelas.

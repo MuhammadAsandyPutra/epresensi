@@ -28,6 +28,9 @@ class PengaturanRequest extends FormRequest
             'gps_akurasi_maks' => ['required', 'integer', 'between:10,1000'],
             'gps_review_akurasi' => ['required', 'integer', 'between:10,1000'],
             'lembur_minimal_menit' => ['required', 'integer', 'between:1,240'],
+            'qr_aktif' => ['required', 'in:0,1'],
+            'qr_mode' => ['required', 'in:tetap,berganti'],
+            'qr_berlaku_detik' => ['required', 'integer', 'between:15,600'],
         ];
     }
 

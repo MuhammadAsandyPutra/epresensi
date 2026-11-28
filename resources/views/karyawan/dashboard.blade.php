@@ -57,10 +57,18 @@
         @if (! $jamPulang)
             <div class="garis"></div>
             <a href="{{ route('presensi.create') }}" class="tombol-hijau merah"><ion-icon name="camera-outline"></ion-icon> Presensi Pulang</a>
+            @inject('qrPresensi', 'App\Services\QrPresensiService')
+            @if ($qrPresensi->aktif())
+                <a href="{{ route('presensi.qr') }}" class="tombol-hijau" style="margin-top:8px;background:#fff;color:var(--hijau);border:1px solid var(--hijau)"><ion-icon name="qr-code-outline"></ion-icon> Pulang dengan QR (tanpa foto)</a>
+            @endif
         @endif
     @elseif ($status === \App\Enums\StatusHarian::Belum)
         <div class="garis"></div>
         <a href="{{ route('presensi.create') }}" class="tombol-hijau"><ion-icon name="camera-outline"></ion-icon> Presensi Masuk</a>
+        @inject('qrPresensi', 'App\Services\QrPresensiService')
+        @if ($qrPresensi->aktif())
+            <a href="{{ route('presensi.qr') }}" class="tombol-hijau" style="margin-top:8px;background:#fff;color:var(--hijau);border:1px solid var(--hijau)"><ion-icon name="qr-code-outline"></ion-icon> Presensi dengan QR (tanpa foto)</a>
+        @endif
     @elseif ($status === \App\Enums\StatusHarian::Libur)
         <p class="mb-0 mt-3 text-center text-muted">{{ $hariIni['keterangan'] ?? 'Hari libur' }}. Selamat beristirahat.</p>
     @elseif ($status === \App\Enums\StatusHarian::TanpaJadwal)

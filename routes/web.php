@@ -29,6 +29,8 @@ Route::middleware('auth:karyawan')->group(function () {
 
     Route::get('/presensi/create', [Karyawan\PresensiController::class, 'create'])->name('presensi.create');
     Route::post('/presensi/store', [Karyawan\PresensiController::class, 'store'])->middleware('throttle:30,1')->name('presensi.store');
+    Route::get('/presensi/qr', [Karyawan\PresensiQrController::class, 'create'])->name('presensi.qr');
+    Route::post('/presensi/qr/store', [Karyawan\PresensiQrController::class, 'store'])->middleware('throttle:30,1')->name('presensi.qr.store');
     Route::get('/presensi/histori', [Karyawan\HistoriController::class, 'index'])->name('histori');
 
     Route::get('/presensi/izin', [Karyawan\PengajuanController::class, 'index'])->name('izin.index');
@@ -104,6 +106,11 @@ Route::prefix('panel')->name('panel.')->group(function () {
         // Koreksi presensi (karyawan tidak bisa presensi sama sekali / lupa pulang)
         Route::get('/koreksi-presensi', [Admin\KoreksiPresensiController::class, 'index'])->name('koreksi.index');
         Route::post('/koreksi-presensi', [Admin\KoreksiPresensiController::class, 'store'])->name('koreksi.store');
+
+        // Layar QR kantor (presensi tanpa foto): dibuka di perangkat kantor
+        Route::get('/qr-kantor', [Admin\QrKantorController::class, 'index'])->name('qr-kantor');
+        Route::get('/qr-kantor/token', [Admin\QrKantorController::class, 'token'])->middleware('throttle:60,1')->name('qr-kantor.token');
+        Route::post('/qr-kantor/ganti', [Admin\QrKantorController::class, 'ganti'])->name('qr-kantor.ganti');
 
         Route::get('/pengaturan', [Admin\PengaturanController::class, 'edit'])->name('pengaturan');
         Route::put('/pengaturan', [Admin\PengaturanController::class, 'update'])->name('pengaturan.update');

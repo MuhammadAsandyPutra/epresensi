@@ -53,11 +53,15 @@ class PresensiService
      * ditolak melainkan DITAHAN (tabel presensi_tahan) dengan tujuan wajib diisi, dan baru tercatat di
      * presensi (dengan jam asli) setelah Direksi menyetujui. Karyawan lain tetap ditolak di luar radius.
      *
+     * Metode `qr`: tanpa foto ($fotoDataUrl = null); KEHADIRAN DI KANTOR dibuktikan oleh token QR yang sah (diperiksa
+     * pemanggil) dan GPS. Karena itu radius kantor wajib ketat: tugas luar atau izin presensi luar kantor tidak melonggarkannya,
+     * dan tidak ada penahanan. Pesan galat radius sengaja tidak menyebut jarak.
+     *
      * @return array{jenis: string, pesan: string, terlambat_menit: int, lembur_menit: int, pulang_cepat_menit: int, ditahan?: bool}
      *
      * @throws AturanBisnisException bila ada aturan yang dilanggar
      */
-    public function catat(Karyawan $karyawan, string $lokasi, ?float $akurasi, string $fotoDataUrl, ?string $ip = null, ?string $keteranganLembur = null, ?string $alasanPulangCepat = null, ?string $alasanLuarKantor = null): array
+    public function catat(Karyawan $karyawan, string $lokasi, ?float $akurasi, ?string $fotoDataUrl, ?string $ip = null, ?string $keteranganLembur = null, ?string $alasanPulangCepat = null, ?string $alasanLuarKantor = null, string $metode = 'foto'): array
     {
         $sekarang = now();
         $tanggal = $sekarang->toDateString();
@@ -88,6 +92,12 @@ class PresensiService
         // "Di luar" = di luar radius kantor tanpa tugas luar yang disetujui. Karyawan yang tidak ditandai
         // HR ditolak; yang ditandai diterima tetapi DITAHAN sampai Direksi menyetujui.
         $luar = ! $tugasLuar && ($jarak === null || $jarak > (int) $cabang?->radius_cabang);
+
+        // QR membuktikan kehadiran DI kantor: radius ketat, tanpa pengecualian tugas luar/luar kantor.
+        if ($metode === 'qr' && ($jarak === null || $jarak > (int) $cabang?->radius_cabang)) {
+            throw new AturanBisnisException('Lokasi Anda tidak sesuai dengan area kantor. Presensi dengan QR hanya dapat dilakukan di kantor.', 'radius');
+        }
+
         if ($luar && ! $bolehLuar) {
             throw new AturanBisnisException(
                 "Anda berada {$jarak} m dari kantor, radius maksimal {$cabang->radius_cabang} m.",
@@ -117,7 +127,7 @@ class PresensiService
             // Tujuan dicek SEBELUM foto disimpan: tanpa tujuan tidak ada berkas yang tertinggal.
             $tujuan = $luar ? $this->wajibTujuanLuar($alasanLuarKantor, $jarak) : null;
 
-            $foto = $this->simpanFoto($karyawan, $tanggal, 'in', $fotoDataUrl);
+            $foto = $fotoDataUrl !== null ? $this->simpanFoto($karyawan, $tanggal, 'in', $fotoDataUrl) : null;
 
             try {
                 if ($luar) {
@@ -148,13 +158,18 @@ class PresensiService
                         'perlu_review' => $this->mencurigakan($karyawan, $lokasi, $akurasi, ! $tugasLuar),
                         'ip_address' => $ip,
                         'tugas_luar' => $tugasLuar !== null,
+                        'metode' => $metode,
                     ]);
                 }
             } catch (UniqueConstraintViolationException) {
-                Storage::disk(config('presensi.foto.disk'))->delete($foto);
+                if ($foto !== null) {
+                    Storage::disk(config('presensi.foto.disk'))->delete($foto);
+                }
                 throw new AturanBisnisException('Presensi masuk hari ini sudah tercatat.', 'selesai');
             } catch (Throwable $e) {
-                Storage::disk(config('presensi.foto.disk'))->delete($foto);
+                if ($foto !== null) {
+                    Storage::disk(config('presensi.foto.disk'))->delete($foto);
+                }
                 throw $e;
             }
 
@@ -213,7 +228,7 @@ class PresensiService
                 }
             }
 
-            $foto = $this->simpanFoto($karyawan, $tanggal, 'out', $fotoDataUrl);
+            $foto = $fotoDataUrl !== null ? $this->simpanFoto($karyawan, $tanggal, 'out', $fotoDataUrl) : null;
             $ubah = [
                 'jam_out' => $jam,
                 'foto_out' => $foto,
@@ -266,6 +281,9 @@ class PresensiService
                     'alasan_pulang_cepat' => mb_substr($alasan, 0, 500),
                     'pulang_cepat_status' => StatusPengajuan::Menunggu->value, // menunggu keputusan Direksi
                 ];
+            }
+            if ($presensi->metode !== $metode) {
+                $ubah['metode'] = 'campuran'; // masuk dan pulang memakai metode berbeda (foto dan QR)
             }
             $presensi->update($ubah);
 

@@ -38,6 +38,7 @@
                     <td>
                         @if ($menit > 0)<span class="badge bg-orange-lt">Terlambat {{ $menit }} mnt</span>@else<span class="badge bg-green-lt">Tepat waktu</span>@endif
                         @if ($p->perlu_review)<span class="badge bg-red-lt" title="Akurasi GPS rendah atau koordinat berulang">Perlu review</span>@endif
+                        @if ($p->metode === 'qr')<span class="badge bg-azure-lt" title="Presensi dengan QR kantor + GPS, tanpa foto">QR</span>@elseif ($p->metode === 'campuran')<span class="badge bg-azure-lt" title="Masuk dan pulang memakai metode berbeda (foto dan QR)">QR + foto</span>@endif
                         @if ($p->luar_kantor)<span class="badge bg-purple-lt" title="Presensi dari luar kantor, disetujui Direksi">Luar kantor</span>@endif
                         @if ($p->dikoreksi())<span class="badge bg-blue-lt" title="{{ $p->koreksi_alasan }}">Dikoreksi HR</span>@endif
                         @if ($p->tugas_luar)<span class="badge bg-purple-lt" title="Presensi dari lokasi tugas luar yang disetujui">Tugas luar</span>@endif

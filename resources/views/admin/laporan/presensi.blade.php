@@ -28,6 +28,7 @@
                         <td>{{ $b['status']->label() }}</td>
                         <td>{{ $b['terlambat_menit'] > 0 ? $b['terlambat_menit'].' mnt' : '' }}</td>
                         <td>{{ $b['keterangan'] }}{{ $b['pulang_cepat'] && ! $b['presensi']?->adaPulangCepat() ? ' Pulang lebih awal.' : '' }}{{ $b['presensi']?->perlu_review ? ' (ditandai review)' : '' }}
+                            @if (in_array($b['presensi']?->metode, ['qr', 'campuran'], true))<div>Presensi dengan QR kantor ({{ $b['presensi']->metode === 'qr' ? 'tanpa foto' : 'sebagian tanpa foto' }})</div>@endif
                             @if ($b['presensi']?->luar_kantor)<div>Presensi luar kantor (disetujui Direksi)</div>@endif
                             @if ($b['presensi']?->dikoreksi())<div>Dikoreksi HR ({{ $b['presensi']->pengoreksi?->name }}): {{ $b['presensi']->koreksi_alasan }}</div>@endif
                             @if ($b['presensi']?->adaPulangCepat())<div>Pulang lebih awal {{ $b['presensi']->pulang_cepat_menit }} mnt ({{ $b['presensi']->pulang_cepat_status->label() }}): {{ $b['presensi']->alasan_pulang_cepat }}</div>@endif

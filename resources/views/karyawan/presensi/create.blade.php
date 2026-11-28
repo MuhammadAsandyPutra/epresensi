@@ -8,6 +8,10 @@
 @endpush
 
 @section('content')
+@inject('qrPresensi', 'App\Services\QrPresensiService')
+@if ($qrPresensi->aktif() && ! $sesi['selesai'])
+    <div class="px-3 pt-2 text-center" style="font-size:13px"><a href="{{ route('presensi.qr') }}"><ion-icon name="qr-code-outline"></ion-icon> Presensi tanpa foto dengan memindai QR kantor</a></div>
+@endif
 @php
     $kantor = $cabang?->koordinat();
     $selesai = $sesi['selesai'];

@@ -18,7 +18,12 @@ class Cabang extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['kode_cabang', 'nama_cabang', 'lokasi_cabang', 'radius_cabang'];
+    protected $fillable = ['kode_cabang', 'nama_cabang', 'lokasi_cabang', 'radius_cabang', 'qr_versi', 'qr_diganti_pada'];
+
+    protected function casts(): array
+    {
+        return ['qr_diganti_pada' => 'datetime'];
+    }
 
     public function karyawan(): HasMany
     {

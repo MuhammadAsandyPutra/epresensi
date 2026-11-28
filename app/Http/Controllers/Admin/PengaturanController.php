@@ -20,6 +20,7 @@ class PengaturanController extends Controller
         'izin_sakit_mundur_hari', 'cuti_jatah_tahunan',
         'gps_akurasi_maks', 'gps_review_akurasi',
         'lembur_minimal_menit',
+        'qr_aktif', 'qr_mode', 'qr_berlaku_detik',
     ];
 
     public function edit(): View

@@ -26,6 +26,7 @@
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.presensi-luar.*') }}" href="{{ route('panel.presensi-luar.index') }}"><span class="nav-link-icon"><i class="ti ti-map-pin-pause"></i></span><span class="nav-link-title">Presensi Luar Kantor</span>
                     @if ($badgeLuar > 0)<span class="badge bg-red ms-auto" title="{{ $user->isDireksi() ? 'Menunggu keputusan Anda' : 'Belum diketahui' }}">{{ $badgeLuar }}</span>@endif</a></li>
                 @if ($user->penerimaInfo())
+                <li class="nav-item"><a class="nav-link {{ $menu('panel.qr-kantor*') }}" href="{{ route('panel.qr-kantor') }}"><span class="nav-link-icon"><i class="ti ti-qrcode"></i></span><span class="nav-link-title">QR Kantor</span></a></li>
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.koreksi.*') }}" href="{{ route('panel.koreksi.index') }}"><span class="nav-link-icon"><i class="ti ti-edit-circle"></i></span><span class="nav-link-title">Koreksi Presensi</span></a></li>
                 @endif
                 <li class="nav-item"><a class="nav-link {{ $menu('panel.kpi*') }}" href="{{ route('panel.kpi') }}"><span class="nav-link-icon"><i class="ti ti-chart-bar"></i></span><span class="nav-link-title">KPI Karyawan</span></a></li>

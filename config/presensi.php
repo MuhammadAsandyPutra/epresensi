@@ -34,6 +34,15 @@ return [
         'maks_rentang_hari'  => 366, // rentang satu pengajuan; mencegah loop hari yang sangat panjang (mis. salah ketik tahun)
     ],
 
+    'qr' => [
+        // Presensi tanpa foto dengan memindai QR di layar kantor (GPS tetap divalidasi). Nonaktif sampai Admin menyalakannya.
+        'aktif' => false,
+        // 'tetap'    : QR dicetak/ditempel dan hanya berubah saat Admin menekan "Ganti QR" (tidak butuh perangkat yang selalu menyala).
+        // 'berganti' : QR berganti otomatis di layar kantor (lebih aman, butuh tablet/monitor yang selalu menyala).
+        'mode' => 'tetap',
+        'berlaku_detik' => 60, // hanya mode 'berganti': QR berganti tiap sekian detik; token berlaku 1x-2x nilai ini
+    ],
+
     'lembur' => [
         // Pulang setelah jam pulang + sekian menit dianggap lembur dan wajib diberi keterangan.
         'minimal_menit' => 30,
