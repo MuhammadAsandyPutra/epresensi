@@ -175,7 +175,7 @@ bila salah satunya ditahan, dan lembur/pulang awal di dalamnya ikut disetujui. Y
 
 Untuk karyawan yang sama sekali tidak bisa presensi atau lupa presensi pulang. Alasan minimal 10 karakter; hanya 31 hari terakhir; hanya hari kerja
 non-libur tanpa izin/cuti disetujui. Jam asli, pelaku, dan waktu koreksi tersimpan permanen, tercatat di Log Aktivitas, dan ditandai *Dikoreksi HR*
-di Monitoring, Laporan, dan CSV. Jam pulang tidak dapat dikoreksi bila presensi itu sudah punya pengajuan lembur/pulang awal.
+di Monitoring, Laporan, dan CSV. Jam pulang tidak dapat dikoreksi selagi pengajuan lembur/pulang awal pada presensi itu **menunggu** atau sudah **disetujui**; bila **ditolak**, jam pulang boleh dikoreksi dan pengajuan yang ditolak itu dihapus (jejaknya ada di Log Aktivitas).
 </details>
 
 <details>

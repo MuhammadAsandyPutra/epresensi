@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" href="{{ asset('assets/img/favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('assets/img/icon/192x192.png') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/style.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/presensi.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/presensi.css') }}?v={{ @filemtime(public_path('assets/css/presensi.css')) }}">
     @stack('head')
 </head>
 

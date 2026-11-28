@@ -355,4 +355,29 @@ class PresensiQrTest extends TestCase
         $this->actingAs($this->buatKaryawan(), 'karyawan')->post(route('panel.qr-kantor.ganti'), ['cabang' => 'PST'])->assertRedirect(route('panel.login'));
         $this->assertSame(1, (int) Cabang::query()->find('PST')->qr_versi);
     }
+
+    // ------------------------------------------------------------ tampilan dashboard karyawan
+
+    public function test_tombol_qr_di_dashboard_punya_tulisan_dan_kelas_yang_terbaca(): void
+    {
+        $this->nyalakanQrTetap();
+        $this->karyawan();
+
+        $html = $this->get(route('dashboard'))->assertOk()->getContent();
+
+        // Dulu tombol kosong: teks putih (!important di CSS) di atas latar putih. Kini memakai kelas khusus.
+        $this->assertStringContainsString('tombol-hijau garis', $html);
+        $this->assertStringContainsString('Presensi dengan QR (tanpa foto)', $html);
+        $this->assertStringNotContainsString('background:#fff;color:var(--hijau)', $html); // tanpa gaya inline yang kalah oleh !important
+
+        $css = file_get_contents(public_path('assets/css/presensi.css'));
+        $this->assertMatchesRegularExpression('/\.tombol-hijau\.garis\s*\{[^}]*color:\s*var\(--hijau\)\s*!important/', $css);
+    }
+
+    public function test_tombol_qr_tidak_tampil_bila_qr_nonaktif(): void
+    {
+        $this->karyawan();
+
+        $this->get(route('dashboard'))->assertOk()->assertDontSee('Presensi dengan QR (tanpa foto)');
+    }
 }

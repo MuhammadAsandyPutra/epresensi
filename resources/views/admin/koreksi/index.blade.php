@@ -36,6 +36,17 @@
         @else
             <div class="mb-3 text-secondary">Belum ada presensi pada tanggal ini. Isi <strong>jam masuk</strong> (dan jam pulang bila sudah pulang) untuk membuat catatannya.</div>
         @endif
+        @if ($presensi)
+            @foreach (['lembur' => $presensi->lembur_status, 'pulang lebih awal' => $presensi->pulang_cepat_status] as $nama => $status)
+                @if ($status === \App\Enums\StatusPengajuan::Menunggu)
+                    <div class="alert alert-warning py-2">Pengajuan <strong>{{ $nama }}</strong> pada presensi ini masih <strong>menunggu keputusan Direksi</strong>; jam pulang belum dapat dikoreksi. Jam masuk tetap bisa.</div>
+                @elseif ($status === \App\Enums\StatusPengajuan::Disetujui)
+                    <div class="alert alert-warning py-2">Pengajuan <strong>{{ $nama }}</strong> pada presensi ini sudah <strong>disetujui Direksi</strong>; jam pulang tidak dapat dikoreksi. Jam masuk tetap bisa.</div>
+                @elseif ($status === \App\Enums\StatusPengajuan::Ditolak)
+                    <div class="alert alert-info py-2">Pengajuan <strong>{{ $nama }}</strong> pada presensi ini <strong>ditolak</strong>. Jam pulang dapat dikoreksi; pengajuan yang ditolak itu akan dihapus dari presensi.</div>
+                @endif
+            @endforeach
+        @endif
         <div class="row g-3">
             <div class="col-md-3"><label class="form-label">Jam masuk</label><input type="time" name="jam_masuk" class="form-control" value="{{ old('jam_masuk', $presensi?->jam_in ? substr($presensi->jam_in, 0, 5) : '') }}"></div>
             <div class="col-md-3"><label class="form-label">Jam pulang</label><input type="time" name="jam_pulang" class="form-control" value="{{ old('jam_pulang', $presensi?->jam_out ? substr($presensi->jam_out, 0, 5) : '') }}"></div>

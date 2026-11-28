@@ -197,8 +197,7 @@
 
             // Server meminta keterangan (lembur / pulang awal / tujuan luar kantor): tanyakan, lalu kirim ulang foto yang sama.
             if (MINTA[json.kode]) {
-                selesaiKirim();
-                const m = MINTA[json.kode];
+                const m = MINTA[json.kode];                  // `mengirim` tetap true selama kotak isian terbuka
                 const hasil = await Swal.fire({
                     icon: 'question', title: m.judul, text: json.pesan,
                     input: 'textarea', inputPlaceholder: m.isi, inputAttributes: { maxlength: 500 }, inputValue: jawaban[m.kolom] || '',
@@ -206,6 +205,7 @@
                     inputValidator: (v) => (!v || v.trim().length < 5) ? 'Minimal 5 karakter.' : null,
                 });
                 if (hasil.isConfirmed) { jawaban[m.kolom] = hasil.value.trim(); return kirim(); }
+                selesaiKirim();                              // dibatalkan
                 return;
             }
 

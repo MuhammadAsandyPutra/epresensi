@@ -96,7 +96,8 @@
         }
     }
 
-    // Kirim otomatis begitu QR terbaca dan GPS cukup akurat.
+    // Kirim otomatis begitu QR terbaca dan GPS cukup akurat. GPS memanggil fungsi ini berulang kali, jadi
+    // `mengirim` harus tetap true SELAMA SELURUH alur (termasuk saat kotak keterangan terbuka).
     function coba() {
         if (SELESAI || mengirim || !token || !posisi || posisi.akurasi > AKURASI_MAKS) return;
         kirim();
@@ -109,36 +110,43 @@
     }
 
     async function kirim() {
+        if (mengirim || !token) return;      // satu alur pada satu waktu
         mengirim = true;
+        const tokenKirim = token;            // salinan: tidak ikut berubah bila token dikosongkan di tempat lain
         elInfo.textContent = 'Mengirim presensi…';
+
         try {
-            const res = await fetch(URL_SIMPAN, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
-                body: JSON.stringify({ token, lokasi: posisi.lat + ',' + posisi.lng, akurasi: posisi.akurasi, ...jawaban }),
-            });
-            const json = await res.json().catch(() => ({}));
-
-            if (res.ok && json.ok) {
-                await Swal.fire({ icon: 'success', title: json.jenis === 'masuk' ? 'Presensi Masuk Berhasil' : 'Presensi Pulang Berhasil', text: json.pesan, timer: 2800, showConfirmButton: false });
-                location.href = URL_BERANDA;
-                return;
-            }
-
-            if (MINTA[json.kode]) {
-                const m = MINTA[json.kode];
-                mengirim = false;
-                const hasil = await Swal.fire({
-                    icon: 'question', title: m.judul, text: json.pesan,
-                    input: 'textarea', inputPlaceholder: m.isi, inputAttributes: { maxlength: 500 }, inputValue: jawaban[m.kolom] || '',
-                    showCancelButton: true, confirmButtonText: 'Lanjutkan', cancelButtonText: 'Batal',
-                    inputValidator: (v) => (!v || v.trim().length < 5) ? 'Minimal 5 karakter.' : null,
+            while (true) {
+                const res = await fetch(URL_SIMPAN, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+                    body: JSON.stringify({ token: tokenKirim, lokasi: posisi.lat + ',' + posisi.lng, akurasi: posisi.akurasi, ...jawaban }),
                 });
-                if (hasil.isConfirmed) { jawaban[m.kolom] = hasil.value.trim(); return kirim(); }
-                return ulangi();
-            }
+                const json = await res.json().catch(() => ({}));
 
-            await Swal.fire({ icon: 'error', title: 'Presensi gagal', text: json.pesan || json.message || 'Terjadi kesalahan. Coba lagi.' });
+                if (res.ok && json.ok) {
+                    await Swal.fire({ icon: 'success', title: json.jenis === 'masuk' ? 'Presensi Masuk Berhasil' : 'Presensi Pulang Berhasil', text: json.pesan, timer: 2800, showConfirmButton: false });
+                    location.href = URL_BERANDA;
+                    return;                  // `mengirim` sengaja tetap true: halaman sedang berpindah
+                }
+
+                // Server meminta keterangan (lembur / pulang awal): tanyakan, lalu kirim ulang dengan token yang sama.
+                if (MINTA[json.kode]) {
+                    const m = MINTA[json.kode];
+                    const hasil = await Swal.fire({
+                        icon: 'question', title: m.judul, text: json.pesan,
+                        input: 'textarea', inputPlaceholder: m.isi, inputAttributes: { maxlength: 500 }, inputValue: jawaban[m.kolom] || '',
+                        showCancelButton: true, confirmButtonText: 'Lanjutkan', cancelButtonText: 'Batal',
+                        inputValidator: (v) => (!v || v.trim().length < 5) ? 'Minimal 5 karakter.' : null,
+                    });
+                    if (!hasil.isConfirmed) break;            // dibatalkan
+                    jawaban[m.kolom] = hasil.value.trim();
+                    continue;
+                }
+
+                await Swal.fire({ icon: 'error', title: 'Presensi gagal', text: json.pesan || json.message || 'Terjadi kesalahan. Coba lagi.' });
+                break;
+            }
         } catch (e) {
             await Swal.fire({ icon: 'error', title: 'Tidak ada koneksi', text: 'Periksa jaringan Anda lalu coba lagi.' });
         }

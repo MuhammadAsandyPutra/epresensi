@@ -20,6 +20,9 @@ use Illuminate\Support\Carbon;
  * aplikasi error, dll.) atau lupa presensi pulang. Membuat baris presensi bila belum ada, atau
  * mengubah jam pada baris yang ada. Jam asli disimpan, dan alasan serta pelakunya tercatat permanen.
  *
+ * Jam pulang tidak dapat dikoreksi bila ada pengajuan lembur/pulang awal yang masih menunggu atau sudah disetujui; yang ditolak
+ * tidak menghalangi (dihapus saat jam pulang dikoreksi).
+ *
  * Catatan KPI: koreksi hanya mengisi jam. Bila jam pulang yang dikoreksi lebih awal dari jam pulang
  * jadwal, hari itu tetap dihitung pulang cepat (tidak ada pengajuan yang menyetujuinya).
  */
@@ -88,8 +91,24 @@ class KoreksiPresensiService
         if ($pulangAkhir !== null && Waktu::detik($pulangAkhir) <= Waktu::detik($masukAkhir)) {
             throw new AturanBisnisException('Jam pulang harus lebih akhir dari jam masuk.');
         }
-        if ($jamPulang !== null && $presensi && ($presensi->adaLembur() || $presensi->adaPulangCepat())) {
-            throw new AturanBisnisException('Jam pulang tidak dapat dikoreksi karena presensi ini sudah memiliki pengajuan lembur/pulang lebih awal.');
+        // Jam pulang yang punya pengajuan lembur/pulang awal: yang masih MENUNGGU atau sudah DISETUJUI menahan koreksi
+        // (keputusan Direksi harus selesai/utuh dulu). Yang DITOLAK tidak menghalangi: pengajuannya gugur dan dibersihkan.
+        $hapusTolakan = [];
+        if ($jamPulang !== null && $presensi) {
+            foreach (['lembur' => $presensi->lembur_status, 'pulang lebih awal' => $presensi->pulang_cepat_status] as $nama => $status) {
+                if ($status === StatusPengajuan::Menunggu) {
+                    throw new AturanBisnisException("Jam pulang belum dapat dikoreksi: pengajuan {$nama} pada presensi ini masih menunggu keputusan Direksi.");
+                }
+                if ($status === StatusPengajuan::Disetujui) {
+                    throw new AturanBisnisException("Jam pulang tidak dapat dikoreksi: pengajuan {$nama} pada presensi ini sudah disetujui Direksi.");
+                }
+            }
+            if ($presensi->lembur_status === StatusPengajuan::Ditolak) {
+                $hapusTolakan += $this->kosongkan('lembur', ['menit', 'status', 'catatan', 'diputuskan_oleh', 'diputuskan_pada', 'diketahui_oleh', 'diketahui_pada'], ['keterangan_lembur']);
+            }
+            if ($presensi->pulang_cepat_status === StatusPengajuan::Ditolak) {
+                $hapusTolakan += $this->kosongkan('pulang_cepat', ['menit', 'status', 'catatan', 'diputuskan_oleh', 'diputuskan_pada', 'diketahui_oleh', 'diketahui_pada'], ['alasan_pulang_cepat']);
+            }
         }
 
         $koreksi = ['koreksi_oleh' => $user->getKey(), 'koreksi_pada' => now(), 'koreksi_alasan' => mb_substr($alasan, 0, 500)];
@@ -114,9 +133,33 @@ class KoreksiPresensiService
         if (! $presensi->dikoreksi()) {
             $koreksi += ['koreksi_jam_in_asli' => $presensi->jam_in, 'koreksi_jam_out_asli' => $presensi->jam_out];
         }
-        $presensi->update(['jam_in' => $masukAkhir, 'jam_out' => $pulangAkhir] + $koreksi);
+        if ($hapusTolakan !== []) {
+            // Jejak tetap ada: keputusan menolak tercatat di Log Aktivitas, dan catatan ini ikut di alasan koreksi.
+            $koreksi['koreksi_alasan'] = mb_substr($alasan.' [Sistem: pengajuan lembur/pulang awal yang ditolak dihapus karena jam pulang dikoreksi]', 0, 500);
+        }
+        $presensi->update(['jam_in' => $masukAkhir, 'jam_out' => $pulangAkhir] + $koreksi + $hapusTolakan);
 
         return $presensi;
+    }
+
+    /**
+     * Daftar kolom presensi yang dikosongkan untuk satu jenis pengajuan (mis. pulang_cepat_menit => null).
+     *
+     * @param  string[]  $akhiran  mis. ['menit', 'status'] menjadi "{$awalan}_menit", "{$awalan}_status"
+     * @param  string[]  $lain  kolom lain yang ikut dikosongkan apa adanya
+     * @return array<string, null>
+     */
+    private function kosongkan(string $awalan, array $akhiran, array $lain): array
+    {
+        $kolom = [];
+        foreach ($akhiran as $a) {
+            $kolom["{$awalan}_{$a}"] = null;
+        }
+        foreach ($lain as $k) {
+            $kolom[$k] = null;
+        }
+
+        return $kolom;
     }
 
     /** "8:05" / "08:05" / "08:05:30" => "08:05:00"; kosong => null. */

@@ -322,4 +322,69 @@ class DireksiTugasLuarLemburTest extends TestCase
         $this->get(route('panel.koreksi.index'))->assertForbidden();
         $this->assertDatabaseCount('presensi', 0);
     }
+
+    // ------------------------------------------------------------ koreksi jam pulang vs pengajuan pulang awal / lembur
+
+    private function presensiPulangAwal(StatusPengajuan $status): Presensi
+    {
+        return Presensi::query()->create([
+            'nik' => '1001', 'tanggal_presensi' => '2026-11-13', 'jam_in' => '08:00:00', 'jam_out' => '13:00:00', 'kode_jam_kerja' => 'JK01',
+            'pulang_cepat_menit' => 240, 'alasan_pulang_cepat' => 'Tidak sengaja menekan presensi pulang',
+            'pulang_cepat_status' => $status->value,
+            'pulang_cepat_catatan' => $status === StatusPengajuan::Ditolak ? 'Tidak ada keperluan mendadak' : null,
+            'pulang_cepat_diputuskan_pada' => $status === StatusPengajuan::Menunggu ? null : now(),
+            'pulang_cepat_diketahui_pada' => now(),
+        ]);
+    }
+
+    public function test_jam_pulang_boleh_dikoreksi_bila_pengajuan_pulang_awal_ditolak(): void
+    {
+        $this->buatKaryawan();
+        $this->presensiPulangAwal(StatusPengajuan::Ditolak);
+        $this->actingAs($this->buatAdmin(User::ROLE_HR), 'user');
+
+        $this->koreksi(['jam_masuk' => '', 'jam_pulang' => '17:00'])->assertSessionHas('sukses');
+
+        $p = Presensi::query()->firstOrFail();
+        $this->assertSame('17:00:00', $p->jam_out);
+        $this->assertNull($p->pulang_cepat_status);              // pengajuan yang ditolak gugur
+        $this->assertNull($p->pulang_cepat_menit);
+        $this->assertNull($p->alasan_pulang_cepat);
+        $this->assertFalse($p->adaPulangCepat());
+        $this->assertSame('13:00:00', $p->koreksi_jam_out_asli); // jam asli tetap tersimpan
+        $this->assertStringContainsString('dihapus', $p->koreksi_alasan); // jejak di alasan koreksi
+    }
+
+    public function test_jam_pulang_tidak_dapat_dikoreksi_selagi_pulang_awal_menunggu(): void
+    {
+        $this->buatKaryawan();
+        $this->presensiPulangAwal(StatusPengajuan::Menunggu);
+        $this->actingAs($this->buatAdmin(User::ROLE_HR), 'user');
+
+        $this->koreksi(['jam_masuk' => '', 'jam_pulang' => '17:00'])->assertSessionHas('galat');
+        $this->assertSame('13:00:00', Presensi::query()->first()->jam_out);
+        $this->assertSame(StatusPengajuan::Menunggu, Presensi::query()->first()->pulang_cepat_status);
+    }
+
+    public function test_jam_pulang_tidak_dapat_dikoreksi_bila_pulang_awal_sudah_disetujui(): void
+    {
+        $this->buatKaryawan();
+        $this->presensiPulangAwal(StatusPengajuan::Disetujui);
+        $this->actingAs($this->buatAdmin(User::ROLE_HR), 'user');
+
+        $this->koreksi(['jam_masuk' => '', 'jam_pulang' => '17:00'])->assertSessionHas('galat');
+        $this->assertSame('13:00:00', Presensi::query()->first()->jam_out);
+    }
+
+    public function test_jam_masuk_tetap_bisa_dikoreksi_walau_pulang_awal_menunggu(): void
+    {
+        $this->buatKaryawan();
+        $this->presensiPulangAwal(StatusPengajuan::Menunggu);
+        $this->actingAs($this->buatAdmin(User::ROLE_HR), 'user');
+
+        $this->koreksi(['jam_masuk' => '07:55', 'jam_pulang' => ''])->assertSessionHas('sukses');
+        $p = Presensi::query()->firstOrFail();
+        $this->assertSame('07:55:00', $p->jam_in);
+        $this->assertSame(StatusPengajuan::Menunggu, $p->pulang_cepat_status); // tidak disentuh
+    }
 }
